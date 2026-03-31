@@ -171,4 +171,4 @@ IATA代码：SHA
 
 ---
 
-** Enjoy your flight! ✈️ **
+Enjoy your flight! ✈️
