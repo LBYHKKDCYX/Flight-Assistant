@@ -222,7 +222,7 @@ def parse_metar(metar):
             break
     
     # 风切变
-    if parts[i] == "WS":
+    if i < len(parts) and parts[i] == "WS":
         while i < len(parts):
             wind_shear = parts[i]
             if re.match(r'^R([0-9]{2}(L|C|R)?)$', wind_shear):
@@ -259,7 +259,7 @@ def parse_metar(metar):
                 BECMG = parts[i + 1]
                 prediction_hour = int(BECMG[2:4])
                 prediction_minute = int(BECMG[4:6])
-                result['prediction_tim_UTC'] = f"{BECMG_code}\n{translator.utc_to_local(result['airport'], day, prediction_hour, prediction_minute)}"
+                result['prediction_tim'] = f"{BECMG_code}\n{translator.utc_to_local(result['airport'], day, prediction_hour, prediction_minute)}"
                 result['prediction'] = parse_metar(' '.join(parts[i + 2:]))
             elif  re.match(r'^(TEMPO)$', prediction):
                 result['prediction_code'] = "3"
@@ -359,6 +359,7 @@ def translate_weather_codes(codes):
     return '，'.join(translations)
 
 def translate_codes(parsed):
+    result = ""
     if parsed == "报文内容冲突":
         result = parsed
         return
@@ -395,13 +396,13 @@ def translate_codes(parsed):
         result += f"近时天气：{translate_weather_codes(parsed['near_weather'])}\n"
     if parsed['wind_shear']:
         result += f"风切变：{parsed['wind_shear']}\n"
-    if parsed['prediction_code']:
+    if parsed['prediction']:
         if parsed['prediction_code'] == '1':
             result += "\n"
             result += "未来两小时内，天气没有变化\n"
         elif parsed['prediction_code'] == '2':
             result += "\n"
-            result += f"未来两小时内，{parsed['prediction_tim_UTC']}，天气将逐渐变为:\n"
+            result += f"未来两小时内，{parsed['prediction_tim']}，天气将逐渐变为:\n"
             result += translate_codes(parsed['prediction']) + "\n"
         elif parsed['prediction_code'] == '3':
             result += "\n"

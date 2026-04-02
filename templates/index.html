@@ -10,6 +10,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>航空助手</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -30,7 +31,16 @@
                     <input type="text" id="icaoInput" placeholder="例如: ZBAA, KJFK, EGLL" maxlength="4" autocomplete="off">
                 </div>
                 <button class="btn" id="icaoBtn">🔍 查询机场信息</button>
-                <div id="icaoResult" class="result-box">等待输入…</div>
+
+                <!-- 结果区域：按钮放在结果框的右上角外侧 -->
+                <div style="position: relative; margin-top: 12px;">
+                    <!-- 按钮容器：绝对定位在右上角外部 -->
+                    <div style="position: absolute; top: -28px; right: 0; display: flex; gap: 8px;">
+                        <button id="copyIcaoBtn" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;">📋 复制</button>
+                        <button id="shareIcaoBtn" class="btn btn-share" style="padding: 4px 12px; font-size: 0.85rem;">📸 分享</button>
+                    </div>
+                    <div id="icaoResult" class="result-box">等待输入…</div>
+                </div>
                 <!-- 历史记录区域 -->
                 <div id="icaoHistory" style="margin-top: 15px;">
                     <span style="font-size: 0.8rem; color: #666;">最近查询：</span>
@@ -39,36 +49,54 @@
             </div>
         </div>
 
-        <!-- METAR 卡片 -->
-        <div class="card">
-            <div class="card-header">
-                <h2><i>🌦️</i> METAR 报文翻译</h2>
+    <div class="card">
+        <div class="card-header">
+            <h2><i>🌦️</i> METAR 报文翻译</h2>
+        </div>
+        <div class="card-body">
+            <!-- 手动输入区域 -->
+            <div class="input-group">
+                <label>手动输入 METAR 报文（若使用获取实时报文，则此处是查询到的原始报文）</label>
+                <textarea id="metarInput" placeholder="示例: ZSSS 251200Z 12005KT 9999 FEW020 18/12 Q1018 NOSIG"></textarea>
             </div>
-            <div class="card-body">
-                <div class="input-group">
-                    <label>手动输入 METAR 报文（若使用获取实时报文，则此处是查询到的原始报文）</label>
-                    <textarea id="metarInput" placeholder="示例: ZSSS 251200Z 12005KT 9999 FEW020 18/12 Q1018 NOSIG"></textarea>
+
+            <!-- 实时获取区域 -->
+            <div class="input-group" style="margin-top: 10px;">
+                <label>或通过 ICAO 获取实时报文</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="fetchIcao" placeholder="ICAO 代码" style="flex: 1;">
+                    <button id="fetchMetarBtn" class="btn">📡 获取实时报文</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px;">
-                    <label>或通过 ICAO 获取实时报文</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="fetchIcao" placeholder="ICAO 代码" style="flex: 1;">
-                        <button id="fetchMetarBtn" class="btn">📡 获取实时报文</button>
-                    </div>
-                    <!-- 历史记录区域（METAR 专用） -->
+                <!-- 历史记录区域（METAR 专用） -->
                     <div id="metarHistory" style="margin-top: 8px;">
                         <span style="font-size: 0.8rem; color: #666;">最近查询：</span>
                         <div id="metarHistoryList" style="display: inline-flex; flex-wrap: wrap; gap: 8px;"></div>
                     </div>
-                </div>  
-                <button id="metarBtn" class="btn">📡 翻译报文</button>
+            </div>
+
+            <!-- 翻译按钮 -->
+            <button id="metarBtn" class="btn" style="margin-top: 10px;">📡 翻译报文</button>
+
+            <!-- 结果区域（与 ICAO 卡片相同布局） -->
+            <div style="position: relative; margin-top: 12px;">
+                <!-- 按钮容器：绝对定位在右上角外侧 -->
+                <div style="position: absolute; top: -28px; right: 0; display: flex; gap: 8px;">
+                    <button id="copyMetarBtn" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;">📋 复制</button>
+                    <button id="shareMetarBtn" class="btn btn-share" style="padding: 4px 12px; font-size: 0.85rem;">📸 分享</button>
+                </div>
                 <div id="metarResult" class="result-box">等待输入…</div>
             </div>
         </div>
     </div>
-    <div class="footer">
+    <div class="footer" >
         ⚡ 数据基于 mwgg_airports 数据库 & IP2Location 国家代码数据库 | 时区自动转换
     </div>
+</div>
+
+<div id="shareCard" style="position: fixed; left: -9999px; top: 0; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 500px;">
+    <h3 style="margin:0 0 10px 0;">✈️ 航空助手</h3>
+    <div id="shareContent"></div>
+    <div style="margin-top: 15px; font-size: 12px; color: #666;">生成时间: <span id="shareTime"></span></div>
 </div>
 
 <script>
@@ -282,6 +310,73 @@
         });
     }
 
+    // 复制 ICAO 结果
+    document.getElementById('copyIcaoBtn').addEventListener('click', () => {
+        const resultText = document.getElementById('icaoResult').innerText;
+        if (resultText && resultText !== '等待输入…') {
+            navigator.clipboard.writeText(resultText).then(() => {
+                alert('✅ 结果已复制到剪贴板');
+            }).catch(() => {
+                alert('❌ 复制失败，请手动复制');
+            });
+        } else {
+            alert('暂无内容可复制');
+        }
+    });
+
+    // 复制 METAR 结果
+    document.getElementById('copyMetarBtn').addEventListener('click', () => {
+        const resultText = document.getElementById('metarResult').innerText;
+        if (resultText && resultText !== '等待输入…') {
+            navigator.clipboard.writeText(resultText).then(() => {
+                alert('✅ 结果已复制到剪贴板');
+            }).catch(() => {
+                alert('❌ 复制失败，请手动复制');
+            });
+        } else {
+            alert('暂无内容可复制');
+        }
+    });
+
+    async function shareAsImage(contentElementId, resultText, title) {
+        const shareCard = document.getElementById('shareCard');
+        const shareContent = document.getElementById('shareContent');
+        const shareTime = document.getElementById('shareTime');
+
+        // 将结果文本转换为带格式的 HTML（保留换行）
+        shareContent.innerHTML = `<div style="font-size: 14px; line-height: 1.6;">${resultText.replace(/\n/g, '<br>')}</div>`;
+        shareTime.innerText = new Date().toLocaleString();
+
+        try {
+            const canvas = await html2canvas(shareCard, { scale: 2, backgroundColor: '#ffffff' });
+            const link = document.createElement('a');
+            link.download = `aviation_${title}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        } catch (err) {
+            alert('生成图片失败：' + err.message);
+        }
+    }
+
+    // ICAO 分享按钮
+    document.getElementById('shareIcaoBtn').addEventListener('click', () => {
+        const resultText = document.getElementById('icaoResult').innerText;
+        if (resultText && resultText !== '等待输入…') {
+            shareAsImage('icaoResult', resultText, 'ICAO');
+        } else {
+            alert('暂无内容可分享');
+        }
+    });
+
+    // METAR 分享按钮
+    document.getElementById('shareMetarBtn').addEventListener('click', () => {
+        const resultText = document.getElementById('metarResult').innerText;
+        if (resultText && resultText !== '等待输入…') {
+            shareAsImage('metarResult', resultText, 'METAR');
+        } else {
+            alert('暂无内容可分享');
+        }
+    });
 
     // 页面加载时渲染历史记录
     renderHistory();
