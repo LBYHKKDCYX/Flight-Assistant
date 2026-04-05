@@ -14,21 +14,26 @@ def parse_metar(metar):
     # 结果字典
     result = {
         'type': '',
-        'airport': '',
+        'airport_code': '',
+        'airport_description': '',
         'time': '',
         'wind': '',
         'visibility': '',
         'rvr': [],
-        'weather': [],
+        'weather': '',
         'clouds': [],
-        'temp_dew': '',
+        'temperature': '',
+        'dew_point': '',
         'pressure': '',
         'prediction_code': '',
         'prediction_tim': '',
         'near_weather': [],
         'wind_shear': '',
+        'prediction_tapy': '',
         'prediction': {},
-        'remarks': ''
+        'remarks': '',
+        'CAVOK_check': True,
+        'CAVOK_check_str': ''
     }
 
     CAVOK = False
@@ -44,7 +49,8 @@ def parse_metar(metar):
 
     # 机场代码 (通常第一个)
     if i < len(parts) and re.match(r'^[A-Z]{4}$', parts[i]):
-        result['airport'] = parts[i]
+        result['airport_code'] = parts[i]
+        result['airport_description'] = translator.translate(parts[i])
         i += 1
 
     # 时间 (格式: DDHHMMZ)
@@ -53,9 +59,8 @@ def parse_metar(metar):
         day = int(time_str[0:2])
         hour = int(time_str[2:4])
         minute = int(time_str[4:6])
-        result['time'] = translator.utc_to_local(result['airport'], day, hour, minute)
+        result['time'] = translator.utc_to_local(result['airport_code'], day, hour, minute)
         # 转换为本地时间
-        
         i += 1
  
     # 风
@@ -147,19 +152,27 @@ def parse_metar(metar):
         "FU", "SG", "VA", "FC", "IC", "DU",
         "PL", "SA", "SS", "GR", "HZ", "DS", "GS"
     ]
+    weather = []
     while i < len(parts):
         weat = parts[i]
         # 检查是否包含天气代码（通常是由字母和+-组成）
         if re.match(r'^[-+]?[A-Z]{2,}$', weat) and not weat == "NSC":
-            result['weather'].append(weat)
+            weather.append(translate_weather_code(weat))
             weather_check = weat[2:]
             if any(keyword in weather_check for keyword in important_weather_map) and CAVOK == True:
-                return "错误：报文内容冲突（CAVOK与天气现象冲突）"
+                result['CAVOK_check'] = False
+                result['CAVOK_check_str'] = "报文内容冲突（CAVOK与天气现象冲突）"
+            
             i += 1
         else:
+            # print(weather)
+            # result['weather'] = translate_weather_codes(weather)
             break
+    result['weather'] = '，'.join(weather)
+
 
     # 云层 (可能多个)
+    cloud_str = []
     cloud_cover_map = {'SKC':'无云', 'FEW':'有1-2个量', 'SCT':'有3-4个量', 'BKN':'有5-6个量', 'OVC':'有7-8个量'}
     cloud_type_map = {'':'云', 'TCU':'浓积云', 'CB':'积雨云'}
     while i < len(parts):
@@ -167,7 +180,7 @@ def parse_metar(metar):
         cloud = parts[i]
         # 云层格式: 三字母+高度（百英尺）或 特殊码如 NSC
         if cloud in ['NSC']:#, 'NCD', 'SKC', 'CLR'
-            result['clouds'].append("5000英尺以下无云")
+            cloud_str.append("5000英尺以下无云")
             i += 1
         elif re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)?$', cloud):
             match = re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)?$', cloud)
@@ -176,11 +189,13 @@ def parse_metar(metar):
             if re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)$', cloud):
                 cloud_type = match.group(3)
             if (int(match.group(2)) <= 49 or match.group(3) in ['TCU', 'CB']) and CAVOK == True:
-                return "错误：报文内容冲突（CAVOK与云层冲突）"
-            result['clouds'].append(f"{height_ft}英尺{cloud_cover_map[cloud_cover]}{cloud_type_map[cloud_type]}")
+                result['CAVOK_check'] = False
+                result['CAVOK_check_str'] = "报文内容冲突（CAVOK与云层冲突）"
+            cloud_str.append(f"{height_ft}英尺{cloud_cover_map[cloud_cover]}{cloud_type_map[cloud_type]}")
             i += 1
         else:
             break
+    result['clouds'] = '，'.join(cloud_str)
 
     # 温度和露点 (格式: TT/DD)
     if i < len(parts):
@@ -194,7 +209,8 @@ def parse_metar(metar):
                 return s
             temp = parse_temp(temp_dew[0])
             dew = parse_temp(temp_dew[1])
-            result['temp_dew'] = f"温度 {temp}°C，露点 {dew}°C"
+            result['temperature'] = f"{temp}°C"
+            result['dew_point'] = f"{dew}°C"
             i += 1
 
     # 气压
@@ -212,14 +228,16 @@ def parse_metar(metar):
             i += 1
 
     # 近时天气（可能多个）
+    near_weather = []
     while i < len(parts):
         weat = parts[i]
         # 检查是否包含天气代码（通常是由字母和+-组成）
         if re.match(r'^RE[A-Z]{2,}$', weat) and not weat == "NSC":
-            result['near_weather'].append(weat)
+            near_weather.append(translate_weather_code(weat))
             i += 1
         else:
             break
+    result['near_weather'] = '，'.join(near_weather)
     
     # 风切变
     if i < len(parts) and parts[i] == "WS":
@@ -243,13 +261,14 @@ def parse_metar(metar):
                 break
 
     # 预报
+    prediction_tapy = ""
+    prediction_str = {}
     if i < len(parts):
         prediction = parts[i]
         if  re.match(r'^(NOSIG|BECMG|TEMPO)$', prediction):
             if  re.match(r'^(NOSIG)$', prediction):
-                result['prediction_code'] = "1"
+                prediction_tapy += "未来两小时内，天气没有变化\n" 
             elif  re.match(r'^(BECMG)$', prediction) and re.match(r'^(FM|TL|AT)([0-9]{4})$', parts[i + 1]):
-                result['prediction_code'] = "2"
                 if re.match(r'^FM([0-9]{4})$', parts[i + 1]):
                     BECMG_code = "从"
                 elif re.match(r'^TL([0-9]{4})$', parts[i + 1]):
@@ -259,12 +278,15 @@ def parse_metar(metar):
                 BECMG = parts[i + 1]
                 prediction_hour = int(BECMG[2:4])
                 prediction_minute = int(BECMG[4:6])
-                result['prediction_tim'] = f"{BECMG_code}\n{translator.utc_to_local(result['airport'], day, prediction_hour, prediction_minute)}"
-                result['prediction'] = parse_metar(' '.join(parts[i + 2:]))
+                prediction_tim = f"{BECMG_code}\n{translator.utc_to_local(result['airport_code'], day, prediction_hour, prediction_minute)}"
+                prediction_tapy += f"未来两小时内，{prediction_tim}，天气将逐渐变为:\n"
+                prediction_str = parse_metar(' '.join(parts[i + 2:]))
             elif  re.match(r'^(TEMPO)$', prediction):
-                result['prediction_code'] = "3"
-                result['prediction'] = parse_metar(' '.join(parts[i + 1:]))
+                prediction_tapy += "未来两小时将有临时天气\n"
+                prediction_str = parse_metar(' '.join(parts[i + 1:]))
             i = len(parts)
+    result['prediction_tapy'] = prediction_tapy
+    result['prediction'] = prediction_str
 
     # 剩余部分作为备注
     if i < len(parts):
@@ -272,7 +294,7 @@ def parse_metar(metar):
 
     return result
 
-def translate_weather_codes(codes):
+def translate_weather_code(code):
     """将天气代码翻译成中文"""
     # code_map = {
     #     'RA': '雨', 'SN': '雪', 'DZ': '毛毛雨', 'GR': '冰雹', 'GS': '小冰雹/霰',
@@ -303,73 +325,70 @@ def translate_weather_codes(codes):
         'PL': '冰粒', 'SA': '沙', 'SS': '沙暴', 'GR': '冰雹', 'HZ': '霾', 'DS': '尘暴', 'GS': '小冰雹或霰',
         'FR':'霜', 'RI':'雾凇', 'PS':'积雪', 'VG':'雨淞', 'GA':'大风', 'WS':'风切变', 'TS': '雷暴',
     }
-    translations = []
-    for code in codes:
-        # 尝试解析
-        desc = code
-        # 简化：只翻译已知代码，否则保留原样
-        # 更好的做法是按规则分解强度+描述符+现象
-        # 此处简单处理
-        translated = []
-        # 处理 + 和 -
-        # intensity = ''
-        if code.startswith('+'):
-            translated.append('强')
-            # intensity = '强'
-            code = code[1:]
-        elif code.startswith('-'):
-            translated.append('弱')
-            # intensity = '弱'
-            code = code[1:]
-        elif code.startswith('VC'):
-            translated.append('附近有')
-            code = code[2:]
-        # 处理描述符和现象
+    translated = ''
         
-        if code == 'NSW':
-            translated.append('无天气')#NSW可能代表无天气
+    if code == 'NSW':
+        translated += '无天气'
+        #NSW可能代表无天气
 
-        # 常见两字母现象
-        if code in code_map:
-            translated.append(code_map[code])
-        else:
-            # 可能有多字母，尝试拆分
-            # 粗略处理
+    # 处理 + 和 -
+    # intensity = ''
+    if code.startswith('+'):
+        translated += '强'
+        # intensity = '强'
+        code = code[1:]
+    elif code.startswith('-'):
+        translated += '弱'
+        # intensity = '弱'
+        code = code[1:]
+    elif code.startswith('VC'):
+        translated += '附近有'
+        code = code[2:]
+    # 处理描述符和现象
 
-            if len(code) >= 4:
-                describer = code[:2]
-                code1 = code[2:]
-                if describer in code_describer_map:
-                    translated.append(code_describer_map[describer])
-                else:
-                        translated.append(describer)
-                if code1 in code_map:
-                    translated.append(code_map[code1])
-                else:
-                    code2 = code1[:2]
-                    code3 = code1[2:]
-                    if code2 in code_map and code3 in code_map:
-                        translated.append(f"{code_map[code2]}夹{code_map[code3]}")
-                        # translated.append(code_map[code3])
-                    else:
-                        translated.append(code1)
+    # 常见两字母现象
+    if code in code_map:
+        translated += code_map[code]
+    else:
+        # 可能有多字母，尝试拆分
+        # 粗略处理
+
+        if len(code) >= 4:
+            describer = code[:2]
+            code1 = code[2:]
+            if describer in code_describer_map:
+                translated += code_describer_map[describer]
             else:
-                translated.append(code)
-        translations.append(''.join(translated))
-    return '，'.join(translations)
+                    translated += describer
+            if code1 in code_map:
+                translated += code_map[code1]
+            else:
+                code2 = code1[:2]
+                code3 = code1[2:]
+                if code2 in code_map and code3 in code_map:
+                    translated += f"{code_map[code2]}夹{code_map[code3]}"
+                    # translated.append(code_map[code3])
+                else:
+                    translated += code1
+        else:
+            translated += code
+        # translations.append(translated)
+    return translated
 
 def translate_codes(parsed):
+    print(parsed) #测试用
     result = ""
     if parsed == "报文内容冲突":
         result = parsed
         return
     if parsed['type']:
         result = f"报文类型：{parsed['type']}\n"
-    if parsed['airport']:
-        result += f"机场代码：{parsed['airport']}\n"
-        result += translator.translate(parsed['airport'])
+    if parsed['airport_code']:
+        result += f"机场代码：{parsed['airport_code']}\n"
+    if parsed['airport_description']:
+        result += parsed['airport_description'] + "\n"
     if parsed['time']:
-        result += f"\n\n观测时间：{parsed['time']}\n"
+        result += f"\n观测时间：{parsed['time']}\n"
     if parsed['wind']:
         result += f"风：{parsed['wind']}\n"
     if parsed['visibility']:
@@ -379,35 +398,35 @@ def translate_codes(parsed):
         for r in parsed['rvr']:
             result += f"  {r}\n"
     if parsed['weather']:
-        result += f"天气现象：{translate_weather_codes(parsed['weather'])}\n"
+        result += f"天气现象：{parsed['weather']}\n"
     if parsed['clouds']:
-        cloud_str = []
-        for c in parsed['clouds']:
-            if c in ('NSC', 'NCD', 'SKC', 'CLR'):
-                cloud_str.append('5000英尺以下无云')
-            else:
-                cloud_str.append(c)
-        result += f"云层：{', '.join(cloud_str)}\n"
-    if parsed['temp_dew']:
-        result += f"温度/露点：{parsed['temp_dew']}\n"
+        #     if c in ('NSC', 'NCD', 'SKC', 'CLR'):
+        result += f"云层：{parsed['clouds']}\n"
+    if parsed['temperature']:
+        result += f"温度：{parsed['temperature']}\n"
+    if parsed['dew_point']:
+        result += f"露点：{parsed['dew_point']}\n"
     if parsed['pressure']:
         result += f"气压：{parsed['pressure']}\n"
     if parsed['near_weather']:
-        result += f"近时天气：{translate_weather_codes(parsed['near_weather'])}\n"
+        result += f"近时天气：{parsed['near_weather']}\n"
     if parsed['wind_shear']:
         result += f"风切变：{parsed['wind_shear']}\n"
+    if parsed['prediction_tapy']:
+        result += "\n" + parsed['prediction_tapy']
     if parsed['prediction']:
-        if parsed['prediction_code'] == '1':
-            result += "\n"
-            result += "未来两小时内，天气没有变化\n"
-        elif parsed['prediction_code'] == '2':
-            result += "\n"
-            result += f"未来两小时内，{parsed['prediction_tim']}，天气将逐渐变为:\n"
-            result += translate_codes(parsed['prediction']) + "\n"
-        elif parsed['prediction_code'] == '3':
-            result += "\n"
-            result += "未来两小时将有临时\n"
-            result += translate_codes(parsed['prediction']) + "\n"
+        result += translate_codes(parsed['prediction'])
+    #     if parsed['prediction_code'] == '1':
+    #         result += "\n"
+    #         result += "未来两小时内，天气没有变化\n"
+    #     elif parsed['prediction_code'] == '2':
+    #         result += "\n"
+    #         result += f"未来两小时内，{parsed['prediction_tim']}，天气将逐渐变为:\n"
+    #         result += translate_codes(parsed['prediction']) + "\n"
+    #     elif parsed['prediction_code'] == '3':
+    #         result += "\n"
+    #         result += "未来两小时将有临时\n"
+    #         result += translate_codes(parsed['prediction']) + "\n"
     if parsed['remarks']:
         result += f"备注：{parsed['remarks']}\n"
     return result
@@ -422,10 +441,10 @@ def main():
     print("请确保 airports.json 文件位于程序同目录下")
     print("-" * 60)
     print("请输入 METAR 报文（例如：ZSSS 251200Z 12005KT 9999 FEW020 18/12 Q1018 NOSIG）")
-    metar = input("\nMETAR: ").strip()
+    # metar = input("\nMETAR: ").strip()
 
     # 测试用
-    # metar = "METAR ZJSY 101200Z 30003MPS 270V340 9999 BKN033 24/18 Q1018 BECMG AT1250 07005MPS SCT016 FEW025CB BKN033"
+    metar = "SPECI ZGGG 011348Z VRB01MPS 5000 +TSRA SCT033CB  BKN050 25/16 Q1013 BECMG AT1420 -TSRA"
 
     if metar.lower() in ('quit', 'exit', 'q'):
         return
@@ -434,7 +453,6 @@ def main():
     parsed = parse_metar(metar)
     print("\n翻译结果：")
     print(translate_codes(parsed))
-    print()
 
 if __name__ == '__main__':
     main()
