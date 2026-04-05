@@ -165,8 +165,6 @@ def parse_metar(metar):
             
             i += 1
         else:
-            # print(weather)
-            # result['weather'] = translate_weather_codes(weather)
             break
     result['weather'] = '，'.join(weather)
 
@@ -352,7 +350,6 @@ def translate_weather_code(code):
     else:
         # 可能有多字母，尝试拆分
         # 粗略处理
-
         if len(code) >= 4:
             describer = code[:2]
             code1 = code[2:]
@@ -367,16 +364,13 @@ def translate_weather_code(code):
                 code3 = code1[2:]
                 if code2 in code_map and code3 in code_map:
                     translated += f"{code_map[code2]}夹{code_map[code3]}"
-                    # translated.append(code_map[code3])
                 else:
                     translated += code1
         else:
             translated += code
-        # translations.append(translated)
     return translated
 
 def translate_codes(parsed):
-    print(parsed) #测试用
     result = ""
     if parsed == "报文内容冲突":
         result = parsed
@@ -416,17 +410,6 @@ def translate_codes(parsed):
         result += "\n" + parsed['prediction_tapy']
     if parsed['prediction']:
         result += translate_codes(parsed['prediction'])
-    #     if parsed['prediction_code'] == '1':
-    #         result += "\n"
-    #         result += "未来两小时内，天气没有变化\n"
-    #     elif parsed['prediction_code'] == '2':
-    #         result += "\n"
-    #         result += f"未来两小时内，{parsed['prediction_tim']}，天气将逐渐变为:\n"
-    #         result += translate_codes(parsed['prediction']) + "\n"
-    #     elif parsed['prediction_code'] == '3':
-    #         result += "\n"
-    #         result += "未来两小时将有临时\n"
-    #         result += translate_codes(parsed['prediction']) + "\n"
     if parsed['remarks']:
         result += f"备注：{parsed['remarks']}\n"
     return result
@@ -441,10 +424,10 @@ def main():
     print("请确保 airports.json 文件位于程序同目录下")
     print("-" * 60)
     print("请输入 METAR 报文（例如：ZSSS 251200Z 12005KT 9999 FEW020 18/12 Q1018 NOSIG）")
-    # metar = input("\nMETAR: ").strip()
+    metar = input("\nMETAR: ").strip()
 
     # 测试用
-    metar = "SPECI ZGGG 011348Z VRB01MPS 5000 +TSRA SCT033CB  BKN050 25/16 Q1013 BECMG AT1420 -TSRA"
+    # metar = "SPECI ZGGG 011348Z VRB01MPS 5000 +TSRA SCT033CB  BKN050 25/16 Q1013 BECMG AT1420 -TSRA"
 
     if metar.lower() in ('quit', 'exit', 'q'):
         return
