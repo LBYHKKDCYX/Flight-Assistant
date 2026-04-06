@@ -88,16 +88,20 @@
             </div>
         </div>
     </div>
-    <div class="footer" >
-        ⚡ 数据基于 mwgg_airports 数据库 & IP2Location 国家代码数据库 | 时区自动转换
-    </div>
 </div>
 
 <div id="shareCard" style="position: fixed; left: -9999px; top: 0; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 500px;">
     <h3 style="margin:0 0 10px 0;">✈️ 航空助手</h3>
     <div id="shareContent"></div>
     <div style="margin-top: 15px; font-size: 12px; color: #666;">生成时间: <span id="shareTime"></span></div>
+    <div class="footer" >数据基于 mwgg_airports 数据库 & IP2Location 国家代码数据库 | 时区自动转换</div>
 </div>
+
+<div class="footer" >
+        ⚡ 数据基于 mwgg_airports 数据库 & IP2Location 国家代码数据库 | 时区自动转换
+</div>
+
+<div id="toast-container"></div>
 
 <script>
     // DOM 元素
@@ -205,11 +209,11 @@
     async function fetchRealTimeMetar() {
         const icao = fetchIcao.value.trim().toUpperCase();
         if (!icao) {
-            alert('请输入 ICAO 代码');
+            showToast('请输入 ICAO 代码', 'warning');
             return;
         }
         if (!/^[A-Z]{4}$/.test(icao)) {
-            alert('ICAO 代码应为 4 个大写字母');
+            showToast('ICAO 代码应为 4 个大写字母', 'warning');
             return;
         }
 
@@ -315,12 +319,12 @@
         const resultText = document.getElementById('icaoResult').innerText;
         if (resultText && resultText !== '等待输入…') {
             navigator.clipboard.writeText(resultText).then(() => {
-                alert('✅ 结果已复制到剪贴板');
+                showToast('✅ 结果已复制到剪贴板', 'success');
             }).catch(() => {
-                alert('❌ 复制失败，请手动复制');
+                showToast('❌ 复制失败，请手动复制', 'error');
             });
         } else {
-            alert('暂无内容可复制');
+            showToast('暂无内容可复制', 'warning');
         }
     });
 
@@ -329,32 +333,46 @@
         const resultText = document.getElementById('metarResult').innerText;
         if (resultText && resultText !== '等待输入…') {
             navigator.clipboard.writeText(resultText).then(() => {
-                alert('✅ 结果已复制到剪贴板');
+                showToast('✅ 结果已复制到剪贴板', 'success');
             }).catch(() => {
-                alert('❌ 复制失败，请手动复制');
+                showToast('❌ 复制失败，请手动复制', 'error');
             });
         } else {
-            alert('暂无内容可复制');
+            showToast('暂无内容可复制', 'warning');
         }
     });
 
-    async function shareAsImage(contentElementId, resultText, title) {
+    async function shareAsImage(resultText, title) {
         const shareCard = document.getElementById('shareCard');
         const shareContent = document.getElementById('shareContent');
         const shareTime = document.getElementById('shareTime');
 
-        // 将结果文本转换为带格式的 HTML（保留换行）
         shareContent.innerHTML = `<div style="font-size: 14px; line-height: 1.6;">${resultText.replace(/\n/g, '<br>')}</div>`;
         shareTime.innerText = new Date().toLocaleString();
 
         try {
             const canvas = await html2canvas(shareCard, { scale: 2, backgroundColor: '#ffffff' });
-            const link = document.createElement('a');
-            link.download = `aviation_${title}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            
+            // 尝试使用 Clipboard API 复制图片
+            if (navigator.clipboard && navigator.clipboard.write) {
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        [blob.type]: blob
+                    })
+                ]);
+                showToast('✅ 图片已复制到剪贴板', 'success');
+            } else {
+                // 降级方案：下载图片
+                const link = document.createElement('a');
+                link.download = `aviation_${title}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                showToast('⚠️ 您的浏览器不支持直接复制图片，已为您下载图片', 'warning');
+            }
         } catch (err) {
-            alert('生成图片失败：' + err.message);
+            console.error(err);
+            showToast('❌ 复制失败，请尝试手动截图', 'error');
         }
     }
 
@@ -362,9 +380,9 @@
     document.getElementById('shareIcaoBtn').addEventListener('click', () => {
         const resultText = document.getElementById('icaoResult').innerText;
         if (resultText && resultText !== '等待输入…') {
-            shareAsImage('icaoResult', resultText, 'ICAO');
+            shareAsImage(resultText, 'ICAO');
         } else {
-            alert('暂无内容可分享');
+            showToast('暂无内容可分享', 'warning');
         }
     });
 
@@ -372,9 +390,9 @@
     document.getElementById('shareMetarBtn').addEventListener('click', () => {
         const resultText = document.getElementById('metarResult').innerText;
         if (resultText && resultText !== '等待输入…') {
-            shareAsImage('metarResult', resultText, 'METAR');
+            shareAsImage(resultText, 'METAR');
         } else {
-            alert('暂无内容可分享');
+            showToast('暂无内容可分享', 'warning');
         }
     });
 
@@ -410,6 +428,34 @@
             translateMETAR();
         }
     });
+    /**
+     * 显示顶部提示
+     * @param {string} message - 提示文字
+     * @param {string} type - 类型: 'success', 'error', 'info', 'warning' (可选)
+     * @param {number} duration - 显示时长（毫秒），默认 2000
+    */
+    function showToast(message, type = 'info', duration = 2000) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast-message ${type}`;
+        toast.textContent = message;
+
+        container.appendChild(toast);
+    
+        // 强制重绘以触发动画
+        toast.offsetHeight;
+        toast.classList.add('show');
+
+        // 自动移除
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 300);
+        }, duration);
+    }
 </script>
 </body>
 </html>

@@ -17,6 +17,10 @@ def parse_metar(metar):
         'airport_code': '',
         'airport_description': '',
         'time': '',
+        'auto': False,
+        'auto_str': '',
+        'nil': False,
+        'nil_str': '',
         'wind': '',
         'visibility': '',
         'rvr': [],
@@ -32,8 +36,8 @@ def parse_metar(metar):
         'prediction_tapy': '',
         'prediction': {},
         'remarks': '',
-        'CAVOK_check': True,
-        'CAVOK_check_str': ''
+        'conflict': False,
+        'conflicting_content': ''
     }
 
     CAVOK = False
@@ -61,6 +65,19 @@ def parse_metar(metar):
         minute = int(time_str[4:6])
         result['time'] = translator.utc_to_local(result['airport_code'], day, hour, minute)
         # 转换为本地时间
+        i += 1
+
+    if i < len(parts) and (parts[i] == 'AUTO' or parts[i] == 'NIL'):
+        if parts[i] == 'NIL':
+            result['nil'] = True
+            result['nil_str'] = '此报文为缺省报告（缺报），报文结束'
+            if len(parts) > i + 1:
+                result['conflict'] = True
+                result['conflicting_content'] = "⚠️警告：报文内容冲突（缺报标志与后续内容冲突）"
+            # return result
+        if parts[i] == 'AUTO':
+            result['auto'] = True
+            result['auto_str'] = '此报文为自动报文'
         i += 1
  
     # 风
@@ -160,8 +177,8 @@ def parse_metar(metar):
             weather.append(translate_weather_code(weat))
             weather_check = weat[2:]
             if any(keyword in weather_check for keyword in important_weather_map) and CAVOK == True:
-                result['CAVOK_check'] = False
-                result['CAVOK_check_str'] = "报文内容冲突（CAVOK与天气现象冲突）"
+                result['conflict'] = True
+                result['conflicting_content'] = "⚠️警告：报文内容冲突（CAVOK与天气现象冲突）"
             
             i += 1
         else:
@@ -187,8 +204,8 @@ def parse_metar(metar):
             if re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)$', cloud):
                 cloud_type = match.group(3)
             if (int(match.group(2)) <= 49 or match.group(3) in ['TCU', 'CB']) and CAVOK == True:
-                result['CAVOK_check'] = False
-                result['CAVOK_check_str'] = "报文内容冲突（CAVOK与云层冲突）"
+                result['conflict'] = True
+                result['conflicting_content'] = "⚠️警告：报文内容冲突（CAVOK与云层冲突）"
             cloud_str.append(f"{height_ft}英尺{cloud_cover_map[cloud_cover]}{cloud_type_map[cloud_type]}")
             i += 1
         else:
@@ -372,17 +389,18 @@ def translate_weather_code(code):
 
 def translate_codes(parsed):
     result = ""
-    if parsed == "报文内容冲突":
-        result = parsed
-        return
     if parsed['type']:
-        result = f"报文类型：{parsed['type']}\n"
+        result += f"报文类型：{parsed['type']}\n"
     if parsed['airport_code']:
         result += f"机场代码：{parsed['airport_code']}\n"
     if parsed['airport_description']:
         result += parsed['airport_description'] + "\n"
     if parsed['time']:
         result += f"\n观测时间：{parsed['time']}\n"
+    if parsed['auto']:
+        result += parsed['auto_str'] + "\n"
+    if parsed['nil']:
+        result += parsed['nil_str'] + "\n"
     if parsed['wind']:
         result += f"风：{parsed['wind']}\n"
     if parsed['visibility']:
@@ -412,6 +430,8 @@ def translate_codes(parsed):
         result += translate_codes(parsed['prediction'])
     if parsed['remarks']:
         result += f"备注：{parsed['remarks']}\n"
+    if parsed['conflict']:
+        result += parsed['conflicting_content']
     return result
     
 
