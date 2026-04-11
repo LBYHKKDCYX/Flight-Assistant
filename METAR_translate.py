@@ -21,10 +21,13 @@ def parse_metar(metar):
         'auto_str': '',
         'nil': False,
         'nil_str': '',
-        'wind': '',
+        'wind_direction': '',
+        'wind_speed': '',
+        'wind_gust': '',
+        'wind_change': '',
         'visibility': '',
         'rvr': [],
-        'weather': '',
+        'weather': [],
         'clouds': [],
         'temperature': '',
         'dew_point': '',
@@ -100,9 +103,10 @@ def parse_metar(metar):
             unit = match.group(6)
             unit_map = {'KT': '节', 'MPS': '米/秒', 'KMH': '公里/小时'}
             unit_str = unit_map.get(unit, unit)
-            wind_str = f"{dir_str}，风速 {speed}{unit_str}"
+            result['wind_direction'] = dir_str
+            result['wind_speed'] = f"{speed}{unit_str}"
             if gust:
-                wind_str += f"，阵风 {gust}{unit_str}"
+                result['wind_gust'] = f"{gust}{unit_str}"
             if i + 1 < len(parts) and re.match(r'(([0-9]{2,3})V([0-9]{2,3}))', parts[i + 1]):
                 i += 1
                 wind_part = parts[i]
@@ -110,8 +114,7 @@ def parse_metar(metar):
                 match = wind_pattern.match(wind_part)
                 dir_str_change_1 = match.group(2)
                 dir_str_change_2 = match.group(3)
-                wind_str += f"，风向在{dir_str_change_1}°到{dir_str_change_2}°之间变化"
-            result['wind'] = wind_str
+                result['wind_change'] = f"风向在{dir_str_change_1}°到{dir_str_change_2}°之间变化"
             i += 1
 
     # 能见度 (可能包含CAVOK)
@@ -130,35 +133,51 @@ def parse_metar(metar):
             i += 1
 
     # 跑道视程 (RVR)，格式: R24/1000FT 或 R24/1000V1500FT
+    def RVR_PorM_parse(code, rvr):
+        if code == "M":
+            if not rvr == "0050":
+                result['conflict'] = True
+                result['conflicting_content'] = f"⚠️警告：跑道{rwy}视程内容冲突（M表示视程小于50米，视程应写为0050，但当前视程写为{rvr}米）"
+            rvr_str = "小于50"
+        elif code == "P":
+            if not rvr == "2000":
+                result['conflict'] = True
+                result['conflicting_content'] = f"⚠️警告：跑道{rwy}视程内容冲突（P表示视程大于2000米，视程应写为2000，但当前视程写为{rvr}米）"
+            rvr_str = "大于2000"
+        return rvr_str
     while i < len(parts):
         rvr_part = parts[i]
-        rvr_pattern = re.compile(r'^R([0-9]{2}(L|C|R)?)/(P|M)?([0-9]{4})(V([0-9]{4}))?(U|D|N)?$')
+        rvr_pattern = re.compile(r'^R([0-9]{2})(L|C|R)?/(P|M)?([0-9]{4})(V(P|M)?([0-9]{4}))?(U|D|N)?$')
         match = rvr_pattern.match(rvr_part)
         if match:
-            rwy = match.group(2)
-            if re.match(r'^R([0-9]{2}(L|C|R))/(P|M)?([0-9]{4})(V([0-9]{4}))?(U|D|N)?$'):
-                if re.match(r'^R([0-9]{2}L)/(P|M)?([0-9]{4})(V([0-9]{4}))?(U|D|N)?$'):
+            rwy = match.group(1)
+            rwy_code = match.group(2)
+            if rwy_code:
+                if rwy_code == 'L':
                     rwy += "左"
-                elif re.match(r'^R([0-9]{2}C)/(P|M)?([0-9]{4})(V([0-9]{4}))?(U|D|N)?$'):
+                elif rwy_code == 'C':
                     rwy += "中"
-                elif re.match(r'^R([0-9]{2}R)/(P|M)?([0-9]{4})(V([0-9]{4}))?(U|D|N)?$'):
+                elif rwy_code == 'R':
                     rwy += "右"
+            low_code = match.group(3)
             low = match.group(4)
-            if re.match(r'^R([0-9]{2}(L|C|R)?)/(P|M)([0-9]{4})(V([0-9]{4}))?(U|D|N)?$'):
-                if not (low == "50" or low == "2000"):
-                    result['rvr'].append(f"跑道视程内容冲突")
-                    break
-                if re.match(r'^R([0-9]{2}(L|C|R)?)/(P)([0-9]{4})(V([0-9]{4}))?(U|D|N)?$'):
-                    if not low == "50":
-                        result['rvr'].append(f"跑道视程内容冲突")
-                        break
-
-            high = match.group(6)
-            unit = match.group(5) or ''
-            if high:
-                result['rvr'].append(f"跑道 {rwy}: {low}–{high} {unit}")
+            if low_code:
+                low_str = RVR_PorM_parse(low_code, low)
             else:
-                result['rvr'].append(f"跑道 {rwy}: {low} {unit}")
+                low_str = low.lstrip('0')
+
+            high_code = match.group(6)
+            high = match.group(7)
+            if match.group(5):
+                if high_code:
+                    high_str = RVR_PorM_parse(high_code, high)
+                else:
+                    high_str = high.lstrip('0')
+            unit = match.group(8) or ''
+            if match.group(5):
+                result['rvr'].append(f"跑道{rwy}视程: 在{low_str}米到{high_str}米之间变化")
+            else:
+                result['rvr'].append(f"跑道{rwy}视程: {low_str}米")
             i += 1
         else:
             break
@@ -169,12 +188,11 @@ def parse_metar(metar):
         "FU", "SG", "VA", "FC", "IC", "DU",
         "PL", "SA", "SS", "GR", "HZ", "DS", "GS"
     ]
-    weather = []
     while i < len(parts):
         weat = parts[i]
         # 检查是否包含天气代码（通常是由字母和+-组成）
         if re.match(r'^[-+]?[A-Z]{2,}$', weat) and not weat == "NSC":
-            weather.append(translate_weather_code(weat))
+            result['weather'].append(translate_weather_code(weat))
             weather_check = weat[2:]
             if any(keyword in weather_check for keyword in important_weather_map) and CAVOK == True:
                 result['conflict'] = True
@@ -183,11 +201,8 @@ def parse_metar(metar):
             i += 1
         else:
             break
-    result['weather'] = '，'.join(weather)
-
 
     # 云层 (可能多个)
-    cloud_str = []
     cloud_cover_map = {'SKC':'无云', 'FEW':'有1-2个量', 'SCT':'有3-4个量', 'BKN':'有5-6个量', 'OVC':'有7-8个量'}
     cloud_type_map = {'':'云', 'TCU':'浓积云', 'CB':'积雨云'}
     while i < len(parts):
@@ -195,7 +210,7 @@ def parse_metar(metar):
         cloud = parts[i]
         # 云层格式: 三字母+高度（百英尺）或 特殊码如 NSC
         if cloud in ['NSC']:#, 'NCD', 'SKC', 'CLR'
-            cloud_str.append("5000英尺以下无云")
+            result['clouds'].append("5000英尺以下无云")
             i += 1
         elif re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)?$', cloud):
             match = re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)?$', cloud)
@@ -206,24 +221,27 @@ def parse_metar(metar):
             if (int(match.group(2)) <= 49 or match.group(3) in ['TCU', 'CB']) and CAVOK == True:
                 result['conflict'] = True
                 result['conflicting_content'] = "⚠️警告：报文内容冲突（CAVOK与云层冲突）"
-            cloud_str.append(f"{height_ft}英尺{cloud_cover_map[cloud_cover]}{cloud_type_map[cloud_type]}")
+            result['clouds'].append(f"{height_ft}英尺{cloud_cover_map[cloud_cover]}{cloud_type_map[cloud_type]}")
             i += 1
         else:
             break
-    result['clouds'] = '，'.join(cloud_str)
 
     # 温度和露点 (格式: TT/DD)
     if i < len(parts):
         temp_part = parts[i]
-        if re.match(r'^M?\d+/M?\d+$', temp_part):
+        if re.match(r'^(M)?([0-9]{2})/(M)?([0-9]{2})', temp_part):
+            match = re.match(r'^(M)?([0-9]{2})/(M)?([0-9]{2})', temp_part)
             # 处理可能带M表示负值
-            temp_dew = temp_part.split('/')
-            def parse_temp(s):
-                if s.startswith('M'):
-                    return '-' + s[1:]
-                return s
-            temp = parse_temp(temp_dew[0])
-            dew = parse_temp(temp_dew[1])
+            def parse_temp(m, s):
+                s = s.lstrip('0')
+                if not s:
+                    s = '0'
+                if m == 'M':
+                    return '-' + s if not s == '0' else '0'
+                else:
+                    return s
+            temp = parse_temp(match.group(1), match.group(2))
+            dew = parse_temp(match.group(3), match.group(4))
             result['temperature'] = f"{temp}°C"
             result['dew_point'] = f"{dew}°C"
             i += 1
@@ -243,16 +261,14 @@ def parse_metar(metar):
             i += 1
 
     # 近时天气（可能多个）
-    near_weather = []
     while i < len(parts):
         weat = parts[i]
         # 检查是否包含天气代码（通常是由字母和+-组成）
         if re.match(r'^RE[A-Z]{2,}$', weat) and not weat == "NSC":
-            near_weather.append(translate_weather_code(weat))
+            result['near_weather'].append(translate_weather_code(weat))
             i += 1
         else:
             break
-    result['near_weather'] = '，'.join(near_weather)
     
     # 风切变
     if i < len(parts) and parts[i] == "WS":
@@ -311,25 +327,6 @@ def parse_metar(metar):
 
 def translate_weather_code(code):
     """将天气代码翻译成中文"""
-    # code_map = {
-    #     'RA': '雨', 'SN': '雪', 'DZ': '毛毛雨', 'GR': '冰雹', 'GS': '小冰雹/霰',
-    #     'PL': '冰粒', 'SG': '雪粒', 'IC': '冰晶', 'FG': '雾', 'BR': '轻雾',
-    #     'HZ': '霾', 'FU': '烟', 'VA': '火山灰', 'DU': '扬尘', 'SA': '沙',
-    #     'PY': '喷发物', 'PO': '尘/沙旋', 'SQ': '飑', 'FC': '漏斗云(龙卷)',
-    #     'SS': '沙暴', 'DS': '尘暴', 'TS': '雷暴', 'SH': '阵', 'FZ': '冻',
-    #     'MI': '浅的', 'BC': '散片', 'PR': '部分覆盖', 'DR': '低飘', 'BL': '高吹',
-    #     'VC': '附近', '+': '强', '-': '弱'
-    # }
-    # code_map = { 
-    #     'RA':'雨', 'SHRA':'阵雨', 'DZ':'毛毛雨', 'FZRA':'冻雨', 'FZDZ':'冻毛毛雨', 'SN':'雪', 
-    #     'SHSN':'阵雪', 'SHGS':'霰', 'SG':'米雪', 'RASN':'雨夹雪', 'SNRA':'雨夹雪', 'SHRASN':'阵性雨夹雪', 'HSNRA':'阵性雨夹雪', 
-    #     'PL':'冰粒', 'SHGR':'冰雹', 'SHGS':'小冰雹', 'IC':'冰针', 'FU':'烟', 'BR':'轻雾', 'MIFG':'浅雾', 
-    #     'FG':'雾', 'FZFG':'冻雾', 'BCFG':'碎雾', 'PRFG':'部分雾', 'BLSA':'高吹沙', 'SA':'扬沙', 'DRSA':'低吹沙', 
-    #     'BLDU':'高吹尘', 'DRDU':'低吹尘', 'SS':'沙暴', 'DS':'尘暴', 'FC':'龙卷', 'SQ':'飑', 'PO':'尘/沙旋风', 
-    #     'VA':'火山灰', 'DU':'浮尘', 'HZ':'霾', 'FR':'霜', 'RI':'雾凇', 'BLSN':'高吹雪', 'DRSN':'低吹雪', 
-    #     'PS':'积雪', 'VG':'雨淞', 'GA':'大风','TS':'雷暴', 'WS':'风切变', 'SH':'阵', 'FZ':'冻', 'MI':'浅的', 
-    #     'BC':'散片', 'PR':'部分覆盖', 'DR':'低飘', 'BL':'高吹', 'VC':'附近', '+':'强', '-':'弱' 
-    # }
     code_describer_map = { 
         'MI': '浅', 'BC': '散片状', 'PR': '部分', 'DR': '低吹', 'BL': '高吹','SH': '阵', 'TS': '雷暴', 'FZ': '冻',
         'RE': '近时'
@@ -401,19 +398,26 @@ def translate_codes(parsed):
         result += parsed['auto_str'] + "\n"
     if parsed['nil']:
         result += parsed['nil_str'] + "\n"
-    if parsed['wind']:
-        result += f"风：{parsed['wind']}\n"
+    if parsed['wind_direction']:
+        result += f"风：\n    风向：{parsed['wind_direction']}\n    风速：{parsed['wind_speed']}\n"
+        if parsed['wind_gust']:
+            result += f"    阵风 {parsed['wind_gust']}\n"
+        if parsed['wind_change']:
+            result += f"    风向变化：{parsed['wind_change']}\n"
     if parsed['visibility']:
         result += f"能见度：{parsed['visibility']}\n"
     if parsed['rvr']:
-        result += "跑道视程：\n"
-        for r in parsed['rvr']:
-            result += f"  {r}\n"
+        result += f"跑道视程：\n    "
+        result += '\n    '.join(parsed['rvr'])
+        result += '\n'
     if parsed['weather']:
-        result += f"天气现象：{parsed['weather']}\n"
-    if parsed['clouds']:
-        #     if c in ('NSC', 'NCD', 'SKC', 'CLR'):
-        result += f"云层：{parsed['clouds']}\n"
+        result += f"天气现象："
+        result += '， '.join(parsed['weather'])
+        result += '\n'
+    if parsed['clouds']:   # NSC, NCD, SKC, CLR
+        result += f"云层：\n    "
+        result += '\n    '.join(parsed['clouds'])
+        result += '\n'
     if parsed['temperature']:
         result += f"温度：{parsed['temperature']}\n"
     if parsed['dew_point']:
@@ -421,7 +425,9 @@ def translate_codes(parsed):
     if parsed['pressure']:
         result += f"气压：{parsed['pressure']}\n"
     if parsed['near_weather']:
-        result += f"近时天气：{parsed['near_weather']}\n"
+        result += f"近时天气："
+        result += '， '.join(parsed['near_weather'])
+        result += '\n'
     if parsed['wind_shear']:
         result += f"风切变：{parsed['wind_shear']}\n"
     if parsed['prediction_tapy']:
@@ -448,6 +454,7 @@ def main():
 
     # 测试用
     # metar = "SPECI ZGGG 011348Z VRB01MPS 5000 +TSRA SCT033CB  BKN050 25/16 Q1013 BECMG AT1420 -TSRA"
+    # metar = "METAR ZBAA 110800Z 15006MPS 110V190 CAVOK R12L/0200 R13C/P2000 R14R/P2000VM0150 M20/M00 Q1010 NOSIG"
 
     if metar.lower() in ('quit', 'exit', 'q'):
         return
