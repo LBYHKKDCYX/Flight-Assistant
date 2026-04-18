@@ -212,14 +212,6 @@ textarea {
         font-size: 1.4rem;
     }
 }
-.btn-secondary {
-    background-color: #6c757d;
-    margin-left: 10px;
-}
-.btn-share {
-    background-color: #17a2b8;
-    margin-left: 5px;
-}
 
 /* 提示框 */
 /* Toast 提示容器 */
@@ -270,3 +262,4 @@ textarea {
     opacity: 1;
     transform: translateY(0);
 }
+

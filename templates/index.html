@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
     <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=0.82, user-scalable=yes">
     <title>航空助手</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -160,7 +160,7 @@
 
         setLoading(icaoResult, true);
         try {
-            const data = await fetchAPI('/api/icao', { icao });
+            const data = await fetchAPI('/api_web/icao', { icao });
             if (data.error) {
                 icaoResult.innerHTML = `❌ ${data.error}`;
                 icaoResult.classList.add('error');
@@ -189,7 +189,7 @@
 
         setLoading(metarResult, true);
         try {
-            const data = await fetchAPI('/api/metar', { metar });
+            const data = await fetchAPI('/api_web/metar', { metar });
             if (data.error) {
                 metarResult.innerHTML = `❌ ${data.error}`;
                 metarResult.classList.add('error');
@@ -219,7 +219,7 @@
 
         metarResult.innerHTML = '<div class="spinner"></div> 获取中...';
         try {
-            const response = await fetch('/api/fetch_metar', {
+            const response = await fetch('/api_web/fetch_metar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ icao })
