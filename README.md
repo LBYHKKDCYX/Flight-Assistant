@@ -21,9 +21,10 @@
 
 - **后端**：Python + Flask
 - **前端**：HTML5 + CSS3 + JavaScript
+- **API文档**：Flasgger (Swagger UI)
 - **数据来源**：
   - 机场数据：[mwgg/Airports](https://github.com/mwgg/Airports) (airports.json)
-  - 国家代码翻译：IP2Location 国家代码数据库
+  - 国家代码翻译：[IP2Location 国家代码数据库](https://www.ip2location.com/free/country-multilingual) (country_translations.csv)
   - METAR 实时数据：[isfpapi.flyisfp.com](https://isfpapi.flyisfp.com/api/metar)
 
 ## 安装与运行
@@ -44,7 +45,7 @@
 
    如果没有 requirements.txt 文件，请手动安装以下依赖：
    ```bash
-   pip install flask requests
+   pip install flask requests flasgger
    ```
 
    对于 Python 3.9 以下版本，还需要安装时区库：
@@ -53,8 +54,8 @@
    ```
 
 3. **下载必要的数据文件**
-   - 从 [mwgg/Airports](https://github.com/mwgg/Airports) 下载 `airports.json` 文件，放在项目根目录
-   - 确保 `country_multilingual.csv` 文件存在于项目根目录（用于国家代码翻译）
+   - 从 [mwgg/Airports](https://github.com/mwgg/Airports) 下载 `airports.json` 文件，放在 `data/` 目录下
+   - 确保 `country_multilingual.csv` 文件存在于 `data/` 目录下（用于国家代码翻译）
 
 ### 运行项目
 
@@ -72,6 +73,7 @@ python app.py
 1. 在 "ICAO 代码查询" 卡片中输入 4 字母的 ICAO 代码（如 ZBAA、KJFK、EGLL）
 2. 点击 "查询机场信息" 按钮或按下回车键
 3. 系统将显示该机场的详细信息
+4. 可以点击输入框上方的 "复制输入" 按钮复制已输入的 ICAO 代码
 
 ### METAR 气象报文翻译
 
@@ -79,11 +81,13 @@ python app.py
 1. 在 "METAR 报文翻译" 卡片的文本框中输入 METAR 报文
 2. 点击 "翻译报文" 按钮或按下 Ctrl+Enter
 3. 系统将解析并翻译该报文
+4. 可以点击输入框上方的 "复制输入" 按钮复制已输入的 METAR 报文
 
 #### 方法二：获取实时 METAR 报文
 1. 在 "或通过 ICAO 获取实时报文" 输入框中输入机场 ICAO 代码
 2. 点击 "获取实时报文" 按钮
 3. 系统将自动获取并填充最新的 METAR 报文，然后自动翻译
+4. 可以点击输入框上方的 "复制输入" 按钮复制已输入的 ICAO 代码
 
 ## 示例
 
@@ -136,6 +140,10 @@ IATA代码：SHA
 ```
 航空助手/
 ├── __pycache__/            # Python 编译缓存
+├── data/                   # 数据文件目录
+│   ├── airports.json       # 机场数据库
+│   ├── country_translations.csv # 国家代码翻译数据库
+│   └── timezone_translations.json # 时区翻译数据
 ├── static/                 # 静态文件
 │   ├── css/                # CSS 样式
 │   └── *.png, *.ico        # 图标文件
@@ -145,8 +153,7 @@ IATA代码：SHA
 ├── METAR_translate.py      # METAR 报文翻译模块
 ├── api.py                  # 外部 API 调用模块
 ├── app.py                  # Flask 应用主文件
-├── airports.json           # 机场数据库
-├── country_multilingual.csv # 国家代码翻译数据库
+├── requirements.txt        # 依赖包配置文件
 └── README.md               # 项目说明文档
 ```
 
@@ -158,6 +165,25 @@ IATA代码：SHA
    - Python 3.9+ 使用内置的 zoneinfo 模块
    - Python 3.9 以下版本需要安装 pytz 库
 4. **错误处理**：系统会对输入错误和网络异常进行友好提示
+5. **API文档**：项目提供了 Swagger UI 文档，可通过 `/apidocs` 访问
+
+## API 接口
+
+### 前端专用 API（返回格式化字符串）
+- `POST /api_web/icao` - ICAO 查询 API
+- `POST /api_web/metar` - METAR 报文翻译 API
+- `POST /api_web/fetch_metar` - 通过 ICAO 获取实时 METAR 原始报文
+
+### 通用 API（返回 JSON，可配置输出格式）
+- `GET /api/v1/icao/<icao>?format=dict|string` - 查询 ICAO 机场信息
+- `POST /api/v1/metar/translate?format=dict|string` - 翻译 METAR 报文
+- `GET /api/v1/metar/fetch/<icao>?raw=true|false&translated=true|false&format=dict|string` - 获取实时 METAR 报文
+
+### API 文档
+项目集成了 Swagger UI，可通过以下地址访问 API 文档：
+```
+http://localhost:5000/apidocs
+```
 
 ## 许可证
 
@@ -168,6 +194,7 @@ IATA代码：SHA
 - 机场数据来自 [mwgg/Airports](https://github.com/mwgg/Airports)
 - 国家代码翻译数据由 [IP2Location](https://www.ip2location.com/free/country-multilingual) 提供
 - METAR 实时数据由 [isfpapi.flyisfp.com](https://isfpapi.flyisfp.com/api/metar) 提供
+- API 文档由 [Flasgger](https://github.com/flasgger/flasgger) 生成
 
 ---
 

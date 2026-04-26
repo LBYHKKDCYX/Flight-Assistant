@@ -28,9 +28,23 @@
             <div class="card-body">
                 <div class="input-group">
                     <label>机场 ICAO 代码（4字母）</label>
-                    <input type="text" id="icaoInput" placeholder="例如: ZBAA, KJFK, EGLL" maxlength="4" autocomplete="off">
+                    <div style="position: relative; margin-top: 12px;">
+                        <!-- 按钮容器：绝对定位在右上角外侧 -->
+                        <div style="position: absolute; top: -28px; right: 0; display: flex; gap: 8px;">
+                            <button id="copyIcaoInputBtn" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;">📋 复制</button>
+                        </div>
+                        <input type="text" id="icaoInput" placeholder="例如: ZBAA, KJFK, EGLL" maxlength="4" autocomplete="off">
+                    </div>
+                    
+                    <!-- 历史记录 -->
+                    <div id="icaoHistory" style="margin-top: 8px;">
+                        <span style="font-size: 0.8rem; color: #666;">最近查询：</span>
+                        <div id="historyList" style="display: inline-flex; flex-wrap: wrap; gap: 8px;"></div>
+                    </div>
                 </div>
-                <button class="btn" id="icaoBtn">🔍 查询机场信息</button>
+
+
+                <button class="btn" id="icaoBtn" style="margin-top: 16px;">🔍 查询机场信息</button>
 
                 <!-- 结果区域：按钮放在结果框的右上角外侧 -->
                 <div style="position: relative; margin-top: 12px;">
@@ -40,11 +54,6 @@
                         <button id="shareIcaoBtn" class="btn btn-share" style="padding: 4px 12px; font-size: 0.85rem;">📸 分享</button>
                     </div>
                     <div id="icaoResult" class="result-box">等待输入…</div>
-                </div>
-                <!-- 历史记录区域 -->
-                <div id="icaoHistory" style="margin-top: 15px;">
-                    <span style="font-size: 0.8rem; color: #666;">最近查询：</span>
-                    <div id="historyList" style="display: inline-flex; flex-wrap: wrap; gap: 8px;"></div>
                 </div>
             </div>
         </div>
@@ -57,21 +66,33 @@
             <!-- 手动输入区域 -->
             <div class="input-group">
                 <label>手动输入 METAR 报文（若使用获取实时报文，则此处是查询到的原始报文）</label>
-                <textarea id="metarInput" placeholder="示例: ZSSS 251200Z 12005KT 9999 FEW020 18/12 Q1018 NOSIG"></textarea>
+                <div style="position: relative; margin-top: 12px;">
+                    <!-- 按钮容器：绝对定位在右上角外侧 -->
+                    <div style="position: absolute; top: -28px; right: 0; display: flex; gap: 8px;">
+                        <button id="copyMetarInputBtn" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;">📋 复制</button>
+                    </div>
+                    <textarea id="metarInput" placeholder="示例: ZSSS 251200Z 12005KT 9999 FEW020 18/12 Q1018 NOSIG"></textarea>
+                </div>
             </div>
 
             <!-- 实时获取区域 -->
             <div class="input-group" style="margin-top: 10px;">
                 <label>或通过 ICAO 获取实时报文</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="fetchIcao" placeholder="ICAO 代码" style="flex: 1;">
+                <div style="display: flex; gap: 10px; margin-top: 12px;">
+                    <div style="position: relative; flex: 1;">
+                        <!-- 按钮容器：绝对定位在输入框正上方右侧 -->
+                        <div style="position: absolute; top: -28px; right: 0; display: flex; gap: 8px;">
+                            <button id="copyFetchIcaoBtn" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;">📋 复制</button>
+                        </div>
+                        <input type="text" id="fetchIcao" placeholder="ICAO 代码" style="width: 100%;">
+                    </div>
                     <button id="fetchMetarBtn" class="btn">📡 获取实时报文</button>
                 </div>
                 <!-- 历史记录区域（METAR 专用） -->
-                    <div id="metarHistory" style="margin-top: 8px;">
-                        <span style="font-size: 0.8rem; color: #666;">最近查询：</span>
-                        <div id="metarHistoryList" style="display: inline-flex; flex-wrap: wrap; gap: 8px;"></div>
-                    </div>
+                <div id="metarHistory" style="margin-top: 8px;">
+                    <span style="font-size: 0.8rem; color: #666;">最近查询：</span>
+                    <div id="metarHistoryList" style="display: inline-flex; flex-wrap: wrap; gap: 8px;"></div>
+                </div>
             </div>
 
             <!-- 翻译按钮 -->
@@ -113,6 +134,30 @@
     const metarResult = document.getElementById('metarResult');
     const fetchIcao = document.getElementById('fetchIcao');
     const fetchMetarBtn = document.getElementById('fetchMetarBtn');
+
+    // 复制输入框内容函数
+        function copyInputContent(inputElement, successMsg) {
+            if (!inputElement.value.trim()) {
+                showToast('输入框为空，无内容可复制', 'warning');
+                return;
+            }
+            navigator.clipboard.writeText(inputElement.value).then(() => {
+                showToast(successMsg || '✅ 输入内容已复制', 'success');
+            }).catch(() => {
+                showToast('❌ 复制失败，请手动复制', 'error');
+            });
+        }
+
+        // 绑定复制输入按钮
+        document.getElementById('copyIcaoInputBtn').addEventListener('click', () => {
+            copyInputContent(icaoInput, '✅ ICAO 代码已复制');
+        });
+        document.getElementById('copyMetarInputBtn').addEventListener('click', () => {
+            copyInputContent(metarInput, '✅ METAR 报文已复制');
+        });
+        document.getElementById('copyFetchIcaoBtn').addEventListener('click', () => {
+            copyInputContent(fetchIcao, '✅ ICAO 代码已复制');
+        });
 
     // 通用请求函数
     async function fetchAPI(endpoint, data) {

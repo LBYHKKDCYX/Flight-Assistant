@@ -1,2 +1,3 @@
 __pycache__/
-__pycache__/METAR_translate.cpython-313.pyc
+data/airports.json
+data/country_translations.csv

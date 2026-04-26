@@ -35,7 +35,7 @@ class ICAOTranslator:
 
         # 构建各数据文件的绝对路径
         airports_path = os.path.join(self.data_dir, 'airports.json')
-        country_path = os.path.join(self.data_dir, 'country_multilingual.csv')
+        country_path = os.path.join(self.data_dir, 'country_translations.csv')
         tz_path = os.path.join(self.data_dir, 'timezone_translations.json')
 
         self.airports = {}

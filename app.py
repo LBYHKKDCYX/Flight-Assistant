@@ -4,6 +4,8 @@ import ICAO_code_translate
 import METAR_translate
 import re
 import api
+from collections import deque
+from datetime import datetime, timezone
 
 # ------------------ Flask 应用 ------------------
 app = Flask(__name__)
@@ -18,6 +20,7 @@ def index():
     """返回前端页面"""
     return render_template('index.html')
 
+RECENT_QUERIES = deque(maxlen=50)
 # ------------------ 前端专用 API（返回格式化字符串，供 Web 界面使用） ------------------
 @app.route('/api_web/icao', methods=['POST'])
 def icao_query():
@@ -28,6 +31,16 @@ def icao_query():
         return jsonify({'error': '请输入 ICAO 代码'}), 400
     # 调用 translator 的 translate 方法，该方法返回字符串（原来打印的文本）
     result = translator.translate(icao_code)
+    icao_code = data.get('icao', '').strip().upper()
+    # 查询成功后，获取机场名称
+    airport_info = translator.airports.get(icao_code, {})
+    name = airport_info.get('name', '未知机场')
+    # 记录查询
+    RECENT_QUERIES.appendleft({
+        'icao': icao_code,
+        'name': name,
+        'time': datetime.now(timezone.utc).astimezone(pytz.timezone('Asia/Shanghai'))
+    })
     return jsonify({'result': result})
 
 @app.route('/api_web/metar', methods=['POST'])
@@ -79,7 +92,7 @@ def fetch_metar_api():
             'type': 'string',
             'enum': ['dict', 'string'],
             'default': 'dict',
-            'description': '返回格式：dict 返回原始字典，string 返回格式化文本'
+            'description': '返回格式：dict 返回原始字典，string 返回格式化文本（国家和时区会翻译）'
         }
     ],
     'responses': {
@@ -262,6 +275,58 @@ def api_metar_fetch(icao):
         return jsonify({'code': 400, 'message': 'At least one of raw or translated must be true'}), 400
 
     return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+# RECENT_QUERIES = deque(maxlen=50)
+
+# @app.route('/api_web/icao', methods=['POST'])
+# def icao_query():
+#     # ... 原有代码 ...
+#     icao_code = data.get('icao', '').strip().upper()
+#     # 查询成功后，获取机场名称
+#     airport_info = translator.airports.get(icao_code, {})
+#     name = airport_info.get('name', '未知机场')
+#     # 记录查询
+#     RECENT_QUERIES.appendleft({
+#         'icao': icao_code,
+#         'name': name,
+#         'time': datetime.now(timezone.utc).astimezone(pytz.timezone('Asia/Shanghai'))
+#     })
+#     # ... 返回结果 ...
+
+@app.route('/rss')
+def rss_feed():
+    """生成 RSS XML"""
+    # 构建 RSS 字符串
+    rss_xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    rss_xml += '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n'
+    rss_xml += '<channel>\n'
+    rss_xml += '  <title>航空助手 - 最近查询动态</title>\n'
+    rss_xml += '  <link>https://yourdomain.com</link>\n'
+    rss_xml += '  <description>用户通过航空助手查询 ICAO 机场的最新记录</description>\n'
+    rss_xml += '  <language>zh-cn</language>\n'
+    rss_xml += f'  <lastBuildDate>{datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>\n'
+    
+    for q in RECENT_QUERIES:
+        title = f"查询了 {q['icao']} - {q['name']}"
+        link = f"https://yourdomain.com/icao/{q['icao']}"  # 可实际添加跳转页面
+        description = f"于 {q['time'].strftime('%Y-%m-%d %H:%M:%S')} 查询了 {q['name']} ({q['icao']})"
+        pub_date = q['time'].strftime("%a, %d %b %Y %H:%M:%S +0800")
+        guid = f"{q['icao']}_{q['time'].timestamp()}"
+        
+        rss_xml += '  <item>\n'
+        rss_xml += f'    <title>{escape_xml(title)}</title>\n'
+        rss_xml += f'    <link>{escape_xml(link)}</link>\n'
+        rss_xml += f'    <description>{escape_xml(description)}</description>\n'
+        rss_xml += f'    <pubDate>{pub_date}</pubDate>\n'
+        rss_xml += f'    <guid>{guid}</guid>\n'
+        rss_xml += '  </item>\n'
+    
+    rss_xml += '</channel>\n</rss>'
+    return Response(rss_xml, mimetype='application/rss+xml')
+
+def escape_xml(s):
+    """转义 XML 特殊字符"""
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 
 if __name__ == '__main__':
