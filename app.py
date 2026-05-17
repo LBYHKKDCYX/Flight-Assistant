@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template
 from flasgger import Swagger, swag_from
 import ICAO_code_translate
 import METAR_translate
@@ -17,11 +17,6 @@ translator = ICAO_code_translate.ICAOTranslator(data_dir='data')
 def index():
     """返回前端页面"""
     return render_template('index.html')
-
-@app.route('/sw.js')
-def service_worker():
-    """提供 Service Worker 文件，确保作用域为根路径"""
-    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
 
 # ------------------ 前端专用 API（返回格式化字符串，供 Web 界面使用） ------------------
 @app.route('/api_web/icao', methods=['POST'])

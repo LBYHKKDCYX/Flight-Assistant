@@ -2,21 +2,13 @@
 <html lang="zh-CN">
 <head>
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
-    <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=0.82, user-scalable=yes">
     <title>航空助手</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(() => console.log('Service Worker 已注册'));
-        }
-    </script>
 </head>
 <body>
 <div class="container">
@@ -124,10 +116,32 @@
     <div class="about-body">
         <div class="about-grid">
             <div class="about-item">
-                <div class="about-icon">📱</div>
+                <div class="about-icon">🛫</div>
                 <div class="about-text">
-                    <strong>PWA 支持</strong>
-                    <p>支持安装到手机或电脑桌面，像原生 App 一样使用，支持离线缓存和独立窗口运行。</p>
+                    <strong>ICAO 机场查询</strong>
+                    <p>输入 4 字母 ICAO 代码，即可获取机场名称、城市、国家、海拔、经纬度、时区等详细信息，支持度分秒格式转换和当地时间显示。</p>
+                </div>
+            </div>
+            <div class="about-item">
+                <div class="about-icon">🌦️</div>
+                <div class="about-text">
+                    <strong>METAR 报文翻译</strong>
+                    <p>支持手动输入 METAR 报文或通过 ICAO 代码实时获取，自动解析并翻译为中文，涵盖风向风速、能见度、天气现象、云层、温湿度、气压等全部要素。</p>
+                </div>
+            </div>
+            <div class="about-item">
+                <div class="about-icon">📡</div>
+                <div class="about-text">
+                    <strong>实时数据</strong>
+                    <p>基于 isfpapi.flyisfp.com 实时获取全球机场 METAR 气象报文，确保数据的时效性和准确性。</p>
+                </div>
+            </div>
+            <div class="about-item">
+                <div class="about-icon">📸</div>
+                <div class="about-text">
+                    <strong>截图分享</strong>
+                    <p>一键将 ICAO 查询结果或 sb
+                        复制到剪贴板或保存本地。</p>
                 </div>
             </div>
         </div>
