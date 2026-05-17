@@ -117,6 +117,60 @@
     </div>
 </div>
 
+<div class="about-card">
+    <div class="about-header">
+        <h3>✈️ 关于航空助手</h3>
+    </div>
+    <div class="about-body">
+        <div class="about-grid">
+            <div class="about-item">
+                <div class="about-icon">📱</div>
+                <div class="about-text">
+                    <strong>PWA 支持</strong>
+                    <p>支持安装到手机或电脑桌面，像原生 App 一样使用，支持离线缓存和独立窗口运行。</p>
+                </div>
+            </div>
+        </div>
+        <div class="about-section-title">📊 数据来源</div>
+        <div class="about-grid">
+            <div class="about-item">
+                <div class="about-icon">🗺️</div>
+                <div class="about-text">
+                    <strong>mwgg/Airports</strong>
+                    <p>全球机场数据库，包含机场名称、IATA 代码、城市、国家、海拔、经纬度、时区等信息，覆盖全球数万个机场。</p>
+                </div>
+            </div>
+            <div class="about-item">
+                <div class="about-icon">🌐</div>
+                <div class="about-text">
+                    <strong>IP2Location</strong>
+                    <p>国家代码多语言数据库，提供 200+ 国家/地区的两字母代码到中文名称的翻译映射。</p>
+                </div>
+            </div>
+            <div class="about-item">
+                <div class="about-icon">🌤️</div>
+                <div class="about-text">
+                    <strong>isfpapi.flyisfp.com</strong>
+                    <p>实时 METAR 气象报文 API，按 ICAO 代码查询全球机场最新天气观测数据。</p>
+                </div>
+            </div>
+            <div class="about-item">
+                <div class="about-icon">🕐</div>
+                <div class="about-text">
+                    <strong>时区翻译表</strong>
+                    <p>内置 IANA 时区名称到中文的映射，例如 "Asia/Shanghai" → "中国标准时间 (上海)"，支持 Python zoneinfo / pytz 自动转换。</p>
+                </div>
+            </div>
+        </div>
+        <div class="about-tech">
+            <span>Python + Flask</span>
+            <span>HTML5 + CSS3 + JavaScript</span>
+            <span>Flasgger (Swagger UI)</span>
+            <span>RESTful API</span>
+        </div>
+    </div>
+</div>
+
 <div id="shareCard" style="position: fixed; left: -9999px; top: 0; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 500px;">
     <h3 style="margin:0 0 10px 0;">✈️ 航空助手</h3>
     <div id="shareContent"></div>
@@ -398,8 +452,12 @@
         const shareContent = document.getElementById('shareContent');
         const shareTime = document.getElementById('shareTime');
 
-        shareContent.innerHTML = `<div style="font-size: 14px; line-height: 1.6;">${resultText.replace(/\n/g, '<br>')}</div>`;
         shareTime.innerText = new Date().toLocaleString();
+
+        const escaped = resultText
+            .replace(/ /g, '&nbsp;')
+            .replace(/\n/g, '<br>');
+        shareContent.innerHTML = `<div style="font-size: 14px; line-height: 1.6;">${escaped}</div>`;
 
         try {
             const canvas = await html2canvas(shareCard, { scale: 2, backgroundColor: '#ffffff' });

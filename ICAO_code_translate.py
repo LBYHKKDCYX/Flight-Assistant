@@ -284,6 +284,7 @@ class ICAOTranslator:
         icao = icao_code.strip().upper()
         if icao in self.airports:
             info = self.airports[icao]
+            icao = info.get('icao', '')
             iata = info.get('iata', '无IATA代码')
             # 提取需要显示的字段，并处理可能缺失的情况
             name = info.get('name', '未知')
@@ -305,6 +306,7 @@ class ICAOTranslator:
 
             # 组装输出
             result = f"机场名称：{name}"
+            result += f"\nICAO代码：{icao}"
             if iata:
                 result += f"\nIATA代码：{iata}"
             else:

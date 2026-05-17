@@ -199,6 +199,88 @@ textarea {
     font-size: 0.8rem;
 }
 
+/* 关于卡片 */
+.about-card {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(2px);
+    border-radius: 32px;
+    box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.5);
+    margin-bottom: 1rem;
+}
+.about-header {
+    background: #ffffff;
+    padding: 1.2rem 1.8rem;
+    border-bottom: 2px solid #eef2f6;
+}
+.about-header h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+.about-body {
+    padding: 1.8rem;
+}
+.about-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+.about-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid #eef2f6;
+}
+.about-item {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 12px;
+    border-radius: 16px;
+    background: #f8fafc;
+    transition: background 0.2s;
+}
+.about-item:hover {
+    background: #eef2f6;
+}
+.about-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    width: 40px;
+    text-align: center;
+}
+.about-text strong {
+    display: block;
+    color: #1e293b;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+.about-text p {
+    color: #64748b;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0;
+}
+.about-tech {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+.about-tech span {
+    background: linear-gradient(95deg, #2563eb, #1e40af);
+    color: white;
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
 /* 响应式 */
 @media (max-width: 900px) {
     .grid {
@@ -210,6 +292,9 @@ textarea {
     }
     .card-header h2 {
         font-size: 1.4rem;
+    }
+    .about-grid {
+        grid-template-columns: 1fr;
     }
 }
 

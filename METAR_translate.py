@@ -26,9 +26,11 @@ def parse_metar(metar):
         'wind_gust': '',
         'wind_change': '',
         'visibility': '',
+        'cavok': False,
         'rvr': [],
         'weather': [],
         'clouds': [],
+        'vertical_visibility': '',
         'temperature': '',
         'dew_point': '',
         'pressure': '',
@@ -39,11 +41,28 @@ def parse_metar(metar):
         'prediction_tapy': '',
         'prediction': {},
         'remarks': '',
+        'error': '',
+        'terminator': False,
         'conflict': False,
-        'conflicting_content': ''
+        'conflicting_content': []
     }
 
-    CAVOK = False
+    for j in range(len(parts)):
+        part = parts[j]
+        if part == '=':
+            if j + 1 < len(parts):
+                result['conflict'] = True
+                if not result['terminator']:
+                    result['terminator'] = True
+                    result['conflicting_content'].append("报文终止符（=）后仍有内容")
+            parts.pop(j)
+        if part.endswith('='):
+            if j + 1 < len(parts):
+                result['conflict'] = True
+                if not result['terminator']:
+                    result['terminator'] = True
+                    result['conflicting_content'].append("报文终止符（=）后仍有内容")
+            parts[j] = part.rstrip('=')
 
     i = 0
     # 避免第一位是MATER
@@ -76,7 +95,7 @@ def parse_metar(metar):
             result['nil_str'] = '此报文为缺省报告（缺报），报文结束'
             if len(parts) > i + 1:
                 result['conflict'] = True
-                result['conflicting_content'] = "⚠️警告：报文内容冲突（缺报标志与后续内容冲突）"
+                result['conflicting_content'].append("报文内容冲突（缺报标志与后续内容冲突）")
             # return result
         if parts[i] == 'AUTO':
             result['auto'] = True
@@ -122,7 +141,7 @@ def parse_metar(metar):
         vis_part = parts[i]
         if vis_part == 'CAVOK':
             result['visibility'] = "CAVOK (能见度≥10公里，无云，无重要天气)"
-            CAVOK = True
+            result['cavok'] = True
             i += 1
         elif re.match(r'^[0-9]{4}$', vis_part):
             vis_m = int(vis_part)
@@ -137,12 +156,12 @@ def parse_metar(metar):
         if code == "M":
             if not rvr == "0050":
                 result['conflict'] = True
-                result['conflicting_content'] = f"⚠️警告：跑道{rwy}视程内容冲突（M表示视程小于50米，视程应写为0050，但当前视程写为{rvr}米）"
+                result['conflicting_content'].append(f"跑道{rwy}视程内容冲突（M表示视程小于50米，视程应写为0050，但当前视程写为{rvr}米）")
             rvr_str = "小于50"
         elif code == "P":
             if not rvr == "2000":
                 result['conflict'] = True
-                result['conflicting_content'] = f"⚠️警告：跑道{rwy}视程内容冲突（P表示视程大于2000米，视程应写为2000，但当前视程写为{rvr}米）"
+                result['conflicting_content'].append(f"跑道{rwy}视程内容冲突（P表示视程大于2000米，视程应写为2000，但当前视程写为{rvr}米）")
             rvr_str = "大于2000"
         return rvr_str
     while i < len(parts):
@@ -194,9 +213,9 @@ def parse_metar(metar):
         if re.match(r'^[-+]?[A-Z]{2,}$', weat) and not weat == "NSC":
             result['weather'].append(translate_weather_code(weat))
             weather_check = weat[2:]
-            if any(keyword in weather_check for keyword in important_weather_map) and CAVOK == True:
+            if any(keyword in weather_check for keyword in important_weather_map) and result['cavok'] == True:
                 result['conflict'] = True
-                result['conflicting_content'] = "⚠️警告：报文内容冲突（CAVOK与天气现象冲突）"
+                result['conflicting_content'].append("报文内容冲突（CAVOK与天气现象冲突）")
             
             i += 1
         else:
@@ -204,7 +223,7 @@ def parse_metar(metar):
 
     # 云层 (可能多个)
     cloud_cover_map = {'SKC':'无云', 'FEW':'有1-2个量', 'SCT':'有3-4个量', 'BKN':'有5-6个量', 'OVC':'有7-8个量'}
-    cloud_type_map = {'':'云', 'TCU':'浓积云', 'CB':'积雨云'}
+    cloud_type_map = {'':'云', '///':'云', 'TCU':'浓积云', 'CB':'积雨云'}
     while i < len(parts):
         cloud_type = ""
         cloud = parts[i]
@@ -212,19 +231,30 @@ def parse_metar(metar):
         if cloud in ['NSC']:#, 'NCD', 'SKC', 'CLR'
             result['clouds'].append("5000英尺以下无云")
             i += 1
-        elif re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)?$', cloud):
-            match = re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)?$', cloud)
+        elif re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(///|TCU|CB)?$', cloud):
+            match = re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(///|TCU|CB)?$', cloud)
             cloud_cover = match.group(1)
             height_ft = int(match.group(2)) * 100
-            if re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(TCU|CB)$', cloud):
+            if re.match(r'^(SKC|FEW|SCT|BKN|OVC)([0-9]{3})(///|TCU|CB)$', cloud):
                 cloud_type = match.group(3)
-            if (int(match.group(2)) <= 49 or match.group(3) in ['TCU', 'CB']) and CAVOK == True:
+            if (int(match.group(2)) <= 49 or match.group(3) in ['TCU', 'CB']) and result['cavok'] == True:
                 result['conflict'] = True
-                result['conflicting_content'] = "⚠️警告：报文内容冲突（CAVOK与云层冲突）"
+                result['conflicting_content'].append("报文内容冲突（CAVOK与云层冲突）")
             result['clouds'].append(f"{height_ft}英尺{cloud_cover_map[cloud_cover]}{cloud_type_map[cloud_type]}")
             i += 1
         else:
             break
+
+    #垂直能见度(格式: VV/// 或 VVnnn)
+    if i < len(parts):
+        vertical_visibility = parts[i]
+        if re.match(r'^VV(///|([0-9]{3}))$', vertical_visibility):
+            match = re.match(r'^VV(///|([0-9]{3}))$', vertical_visibility)
+            if match.group(1) == '///':
+                result['vertical_visibility'] = "无垂直能见度"
+            else:
+                result['vertical_visibility'] = f"≥{match.group(2)} 米"
+            i += 1
 
     # 温度和露点 (格式: TT/DD)
     if i < len(parts):
@@ -249,16 +279,18 @@ def parse_metar(metar):
     # 气压
     if i < len(parts):
         pres_part = parts[i]
-        if pres_part.startswith('Q'):
-            # QNH 百帕
-            pres = pres_part[1:]
-            result['pressure'] = f"{pres} hPa"
-            i += 1
-        elif pres_part.startswith('A'):
-            # 英寸汞柱
-            pres = pres_part[1:]
-            result['pressure'] = f"{pres[:2]}.{pres[2:]} 英寸汞柱"
-            i += 1
+        if re.match(r'^[Q|A][0-9]{3}$', pres_part):
+            match = re.match(r'^[Q|A][0-9]{3}$', pres_part)
+            if match.group(1) == 'Q':
+                # QNH 百帕
+                pres = pres_part[1:]
+                result['pressure'] = f"{pres} hPa"
+                i += 1
+            elif match.group(1) == 'A':
+                # 英寸汞柱
+                pres = pres_part[1:]
+                result['pressure'] = f"{pres[:2]}.{pres[2:]} 英寸汞柱"
+                i += 1
 
     # 近时天气（可能多个）
     while i < len(parts):
@@ -320,8 +352,10 @@ def parse_metar(metar):
     result['prediction'] = prediction_str
 
     # 剩余部分作为备注
-    if i < len(parts):
-        result['remarks'] = ' '.join(parts[i:])
+    if i < len(parts) and parts[i] == "RMK":
+        result['remarks'] = ' '.join(parts[i + 1:])
+    else:
+        result['error'] = ' '.join(parts[i:])
 
     return result
 
@@ -335,12 +369,13 @@ def translate_weather_code(code):
         'DZ': '毛毛雨', 'BR': '轻雾', 'PO': '尘/沙旋风（尘卷风）', 'RA': '雨', 'FG': '雾', 'SQ': '飑', 'SN': '雪',
         'FU': '烟', 'SG': '米雪', 'VA': '火山灰', 'FC': '龙卷云（陆龙卷/水龙卷）', 'IC': '冰晶/冰针', 'DU': '浮尘',
         'PL': '冰粒', 'SA': '沙', 'SS': '沙暴', 'GR': '冰雹', 'HZ': '霾', 'DS': '尘暴', 'GS': '小冰雹或霰',
-        'FR':'霜', 'RI':'雾凇', 'PS':'积雪', 'VG':'雨淞', 'GA':'大风', 'WS':'风切变', 'TS': '雷暴',
+        'FR':'霜', 'RI':'雾凇', 'PS':'积雪', 'VG':'雨淞', 'GA':'大风', 'WS':'风切变', 'TS': '雷暴', 'UP': '未知天气',
+        'FZUP': '冻未知天气'
     }
     translated = ''
         
     if code == 'NSW':
-        translated += '无天气'
+        translated += '无显著天气'
         #NSW可能代表无天气
 
     # 处理 + 和 -
@@ -411,13 +446,15 @@ def translate_codes(parsed):
         result += '\n    '.join(parsed['rvr'])
         result += '\n'
     if parsed['weather']:
-        result += f"天气现象："
-        result += '， '.join(parsed['weather'])
+        result += f"天气现象：\n    "
+        result += '\n    '.join(parsed['weather'])
         result += '\n'
     if parsed['clouds']:   # NSC, NCD, SKC, CLR
         result += f"云层：\n    "
         result += '\n    '.join(parsed['clouds'])
         result += '\n'
+    if parsed['vertical_visibility']:
+        result += f"垂直能见度：{parsed['vertical_visibility']}\n"
     if parsed['temperature']:
         result += f"温度：{parsed['temperature']}\n"
     if parsed['dew_point']:
@@ -425,8 +462,8 @@ def translate_codes(parsed):
     if parsed['pressure']:
         result += f"气压：{parsed['pressure']}\n"
     if parsed['near_weather']:
-        result += f"近时天气："
-        result += '， '.join(parsed['near_weather'])
+        result += f"近时天气：\n    "
+        result += '\n    '.join(parsed['near_weather'])
         result += '\n'
     if parsed['wind_shear']:
         result += f"风切变：{parsed['wind_shear']}\n"
@@ -435,9 +472,11 @@ def translate_codes(parsed):
     if parsed['prediction']:
         result += translate_codes(parsed['prediction'])
     if parsed['remarks']:
-        result += f"备注：{parsed['remarks']}\n"
+        result += f"\n备注：{parsed['remarks']}\n"
+    if parsed['error']:
+        result += f"\n无法翻译部分：{parsed['error']}\n"
     if parsed['conflict']:
-        result += parsed['conflicting_content']
+        result += f"\n⚠️警告：报文内容冲突（{'; '.join(parsed['conflicting_content'])}）\n"
     return result
     
 
