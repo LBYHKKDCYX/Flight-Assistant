@@ -1,3 +1,7 @@
 __pycache__/
 data/
 !data/translations.json
+frontend/node_modules/
+frontend/dist/
+static/dist/
+*.pyc

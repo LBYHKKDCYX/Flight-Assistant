@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 from flasgger import Swagger, swag_from
 import ICAO_code_translate
 import METAR_translate
@@ -7,7 +8,7 @@ import api
 
 # ------------------ Flask 应用 ------------------
 app = Flask(__name__)
-# 设置静态文件和模板目录（默认即可）
+CORS(app)
 swagger = Swagger(app)
 
 # 初始化 ICAO 翻译器（数据 airports.json 和 country_multilingual.csv 存放在 data/ 目录下）

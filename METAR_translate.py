@@ -279,8 +279,8 @@ def parse_metar(metar):
     # 气压
     if i < len(parts):
         pres_part = parts[i]
-        if re.match(r'^[Q|A][0-9]{3}$', pres_part):
-            match = re.match(r'^[Q|A][0-9]{3}$', pres_part)
+        if re.match(r'^([Q|A])[0-9]{4}$', pres_part):
+            match = re.match(r'^([Q|A])[0-9]{4}$', pres_part)
             if match.group(1) == 'Q':
                 # QNH 百帕
                 pres = pres_part[1:]
