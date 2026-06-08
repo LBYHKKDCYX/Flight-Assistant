@@ -1,7 +1,0 @@
-Flask==2.0.1
-flask-cors==3.0.10
-requests==2.26.0
-flasgger==0.9.5
-
-# 对于Python 3.9以下版本，需要安装pytz
-# pytz==2021.3

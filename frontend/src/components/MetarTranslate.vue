@@ -33,7 +33,7 @@
               @keypress.enter.prevent="fetchMetar"
             >
           </div>
-          <button class="btn" @click="fetchMetar"><AeroIcon name="antenna" :size="16" /> 获取实时报文</button>
+          <button class="btn" @click="fetchMetar"><AeroIcon name="cloud-download" :size="20" /> 获取实时报文</button>
         </div>
         <div class="history-row" v-if="historyList.length">
           <span class="history-hint">最近查询：</span>
@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <button class="btn" @click="translate"><AeroIcon name="antenna" :size="16" /> 翻译报文</button>
+      <button class="btn" @click="translate"><AeroIcon name="translate" :size="18" /> 翻译报文</button>
 
       <div class="result-wrap">
         <div class="btn-row">

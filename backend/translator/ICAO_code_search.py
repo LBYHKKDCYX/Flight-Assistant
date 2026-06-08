@@ -24,14 +24,17 @@ except ImportError:
         USE_ZONEINFO = None
 
 class ICAOTranslator:
-    def __init__(self, data_dir='data'):
+    def __init__(self, data_dir=None):
         """
         参数:
-            data_dir: 存放所有数据文件的目录（相对于脚本所在目录）
+            data_dir: 存放所有数据文件的目录
         """
-        # 获取脚本所在目录
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.data_dir = os.path.join(script_dir, data_dir)
+        if data_dir is None:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            data_dir = os.path.join(os.path.dirname(script_dir), 'data')
+        else:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.data_dir = os.path.join(script_dir, data_dir) if not os.path.isabs(data_dir) else data_dir
 
         # 构建各数据文件的绝对路径
         airports_path = os.path.join(self.data_dir, 'airports.json')

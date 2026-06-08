@@ -1,7 +1,7 @@
 __pycache__/
-data/
-!data/translations.json
-frontend/node_modules/
-frontend/dist/
-static/dist/
 *.pyc
+backend/data/
+!backend/data/timezone_translations.json
+frontend/node_modules/
+static/
+run_dev.py

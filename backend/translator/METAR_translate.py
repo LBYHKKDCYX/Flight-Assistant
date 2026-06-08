@@ -1,7 +1,9 @@
 import re
-import ICAO_code_translate
+import os
+from .ICAO_code_search import ICAOTranslator
 
-translator = ICAO_code_translate.ICAOTranslator(data_dir='data')
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+translator = ICAOTranslator(data_dir=os.path.join(_BASE, 'data'))
 
 def parse_metar(metar):
     """
@@ -56,6 +58,7 @@ def parse_metar(metar):
                     result['terminator'] = True
                     result['conflicting_content'].append("报文终止符（=）后仍有内容")
             parts.pop(j)
+            break
         if part.endswith('='):
             if j + 1 < len(parts):
                 result['conflict'] = True
@@ -63,6 +66,7 @@ def parse_metar(metar):
                     result['terminator'] = True
                     result['conflicting_content'].append("报文终止符（=）后仍有内容")
             parts[j] = part.rstrip('=')
+            break
 
     i = 0
     # 避免第一位是MATER

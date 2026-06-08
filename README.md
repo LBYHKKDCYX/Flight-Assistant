@@ -18,16 +18,17 @@
   - 自动时区转换，显示当地时间
   - 报文终止符（=）自动处理与冲突检测
 
-- **截图分享**：支持将查询结果一键生成为图片并复制到剪贴板
+- **截图分享**：查询结果一键生成为图片并复制到剪贴板
 
-- **历史记录**：自动保存最近查询的 ICAO 代码，点击即可快速回查
+- **历史记录**：自动保存最近查询的 ICAO 代码，点击快速回查
 
 ## 技术栈
 
-- **后端**：Python + Flask
-- **前端**：Vue 3 + Vite（开发） / 原生 HTML + CSS + JS（Flask 模板）
+- **后端**：Python + Flask（纯 API 服务）
+- **前端**：Vue 3 + Vite
 - **API 文档**：Flasgger (Swagger UI)
 - **截图**：html2canvas (v1.4.1)
+- **SVG 图标**：Inline SVG 组件（非 emoji，跨平台一致）
 - **数据来源**：
   - 机场数据：[mwgg/Airports](https://github.com/mwgg/Airports) (airports.json，约 29,000 个机场)
   - 国家代码翻译：[IP2Location 国家代码数据库](https://www.ip2location.com/free/country-multilingual) (country_translations.csv，249 个国家/地区)
@@ -45,10 +46,10 @@
 ### 安装依赖
 
 ```bash
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
-Vue 前端首次使用需安装：
+Vue 前端首次需安装：
 
 ```bash
 cd frontend
@@ -57,12 +58,12 @@ npm install
 
 ### 数据准备
 
-- 从 [mwgg/Airports](https://github.com/mwgg/Airports) 下载 `airports.json`，放在 `data/` 目录下
-- 从 [IP2Location](https://www.ip2location.com/free/country-multilingual) 下载 `country_multilingual.csv`（重命名为 `country_translations.csv`），放在 `data/` 目录下
+- 从 [mwgg/Airports](https://github.com/mwgg/Airports) 下载 `airports.json`，放在 `backend/data/` 目录下
+- 从 [IP2Location](https://www.ip2location.com/free/country-multilingual) 下载 `country_multilingual.csv`（重命名为 `country_translations.csv`），放在 `backend/data/` 目录下
 
-### 启动项目
+- `timezone_translations.json` — 项目自带，无需额外下载
 
-**一键启动（推荐）：**
+### 启动
 
 ```bash
 python run_dev.py
@@ -74,16 +75,12 @@ python run_dev.py
 
 ```bash
 # 终端 1 — Flask 后端
-python app.py                          # → localhost:5000
+cd backend
+python app.py
 
-# 终端 2 — Vue 前端
-cd frontend && npx vite --host         # → localhost:5173
-```
-
-**仅用 Flask 模板版（不需要 Node.js）：**
-
-```bash
-python app.py                          # → localhost:5000
+# 终端 2 — Vue
+cd frontend
+npx vite --host
 ```
 
 ## 示例
@@ -94,7 +91,7 @@ python app.py                          # → localhost:5000
 
 输出：
 ```
-机场名称：北京首都国际机场
+机场名称：Beijing Capital International Airport
 ICAO代码：ZBAA
 IATA代码：PEK
 所在城市：Beijing (Beijing)
@@ -131,71 +128,73 @@ IATA代码：PEK
 
 ```
 航空助手/
-├── data/                         # 数据文件（需自行下载）
-│   ├── airports.json             # 机场数据库（约 29,000 条）
-│   ├── country_translations.csv  # 国家代码翻译（249 条）
-│   └── timezone_translations.json # 时区中文翻译表
-├── static/
-│   ├── css/style.css             # Flask 模板样式
-│   ├── favicon.ico
-│   ├── favicon-16x16.png
-│   └── favicon-32x32.png
-├── templates/
-│   └── index.html                # Flask 模板版前端（原生 JS）
-├── frontend/                     # Vue 3 前端项目
-│   ├── public/                   # 静态资源
+├── backend/                       # Flask 后端
+│   ├── translator/                # 翻译核心模块
+│   │   ├── __init__.py            # 统一导出
+│   │   ├── icao.py                # ICAO 翻译器
+│   │   └── metar.py               # METAR 报文解析
+│   ├── data/                      # 静态数据（需下载）
+│   │   ├── airports.json
+│   │   ├── country_translations.csv
+│   │   └── timezone_translations.json
+│   ├── utils.py                   # 外部 API 调用
+│   ├── app.py                     # Flask 路由定义
+│   ├── run.py                     # 启动入口
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── frontend/                      # Vue 3 前端
+│   ├── public/                    # favicon 等静态资源
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── IcaoQuery.vue     # ICAO 查询卡片
+│   │   │   ├── IcaoQuery.vue      # ICAO 查询卡片
 │   │   │   ├── MetarTranslate.vue # METAR 翻译卡片
-│   │   │   ├── AboutSection.vue  # 关于卡片
+│   │   │   ├── AeroIcon.vue       # SVG 图标组件
 │   │   │   └── ToastContainer.vue # Toast 提示
 │   │   ├── composables/
-│   │   │   ├── useToast.js       # 响应式提示
-│   │   │   ├── useHistory.js     # 历史记录
-│   │   │   └── useShare.js       # 截图分享
-│   │   ├── App.vue               # 根组件
-│   │   ├── main.js               # Vue 入口
-│   │   └── style.css             # 全局样式
-│   ├── index.html                # Vue 入口 HTML
-│   ├── package.json              # Node 依赖
-│   └── vite.config.js            # Vite 配置（API 代理）
-├── app.py                        # Flask 应用主入口
-├── api.py                        # 外部 METAR API 调用
-├── ICAO_code_translate.py        # ICAO 翻译器
-├── METAR_translate.py            # METAR 报文解析器
-├── run_dev.py                    # 一键启动脚本
-├── requirements.txt
+│   │   │   ├── useToast.js        # 响应式提示
+│   │   │   ├── useHistory.js      # 历史记录
+│   │   │   └── useShare.js        # 截图分享
+│   │   ├── App.vue                # 根组件
+│   │   ├── main.js                # Vue 入口
+│   │   └── style.css              # 全局样式
+│   ├── index.html                 # Vite 入口 HTML
+│   ├── package.json
+│   └── vite.config.js             # API 代理配置
+│
+├── run_dev.py                     # 一键启动（Flask + Vue）
 ├── .gitignore
 └── README.md
 ```
 
 ## API 接口
 
-### 前端专用 API（返回格式化字符串）
+### 前端专用 API
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api_web/icao` | ICAO 机场查询 |
 | POST | `/api_web/metar` | METAR 报文翻译 |
 | POST | `/api_web/fetch_metar` | 通过 ICAO 获取实时 METAR |
 
-### 通用 API（返回 JSON）
+### 通用 API
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/v1/icao/<icao>?format=dict\|string` | 查询 ICAO 机场信息 |
+| GET | `/api/v1/icao/<icao>?format=dict\|string` | 查询 ICAO 机场 |
 | POST | `/api/v1/metar/translate?format=dict\|string` | 翻译 METAR 报文 |
 | GET | `/api/v1/metar/fetch/<icao>?raw&translated&format` | 获取并翻译实时 METAR |
 
 ### Swagger 文档
 
-启动后访问 `http://localhost:5000/apidocs`
+```
+http://localhost:5000/apidocs
+```
 
 ## 注意事项
 
-1. **数据更新**：airports.json 和 country_translations.csv 需自行下载，放在 `data/` 目录下
-2. **网络依赖**：获取实时 METAR 报文需要网络连接
-3. **时区支持**：Python 3.9+ 使用内置 zoneinfo，3.9 以下需 `pip install pytz`
-4. **Vue 开发**：需要 Node.js 环境，但 Flask 模板版可直接使用无需额外安装
+1. **数据文件**：`airports.json` 和 `country_translations.csv` 需自行下载到 `backend/data/`
+2. **网络依赖**：获取实时 METAR 需要网络连接
+3. **时区**：Python 3.9+ 使用内置 zoneinfo，3.9 以下需 `pip install pytz`
+4. **首次运行**：`frontend/node_modules/` 目录不存在时会自动执行 `npm install`
 
 ## 许可证
 

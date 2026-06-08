@@ -6,7 +6,7 @@ import webbrowser
 import signal
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FLASK_DIR = BASE_DIR
+FLASK_DIR = os.path.join(BASE_DIR, 'backend')
 VUE_DIR = os.path.join(BASE_DIR, 'frontend')
 
 flask_proc = None
@@ -56,7 +56,7 @@ def start_flask():
     global flask_proc
     print("[1/2] 正在启动 Flask 后端...")
     flask_proc = subprocess.Popen(
-        [sys.executable, 'app.py'],
+        [sys.executable, 'run.py'],
         cwd=FLASK_DIR,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
