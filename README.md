@@ -28,7 +28,6 @@
 - **前端**：Vue 3 + Vite
 - **API 文档**：Flasgger (Swagger UI)
 - **截图**：html2canvas (v1.4.1)
-- **SVG 图标**：Inline SVG 组件（非 emoji，跨平台一致）
 - **数据来源**：
   - 机场数据：[mwgg/Airports](https://github.com/mwgg/Airports) (airports.json，约 29,000 个机场)
   - 国家代码翻译：[IP2Location 国家代码数据库](https://www.ip2location.com/free/country-multilingual) (country_translations.csv，249 个国家/地区)
@@ -198,7 +197,7 @@ http://localhost:5000/apidocs
 
 ## 许可证
 
-本项目仅供学习和参考使用
+本项目基于 [MIT License](LICENSE) 开源。
 
 ## 致谢
 
