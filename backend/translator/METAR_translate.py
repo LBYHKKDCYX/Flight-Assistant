@@ -427,8 +427,6 @@ def translate_codes(parsed):
     result = ""
     if parsed['type']:
         result += f"报文类型：{parsed['type']}\n"
-    if parsed['airport_code']:
-        result += f"机场代码：{parsed['airport_code']}\n"
     if parsed['airport_description']:
         result += parsed['airport_description'] + "\n"
     if parsed['time']:
