@@ -4,4 +4,3 @@ backend/data/
 !backend/data/timezone_translations.json
 frontend/node_modules/
 static/
-run_dev.py
