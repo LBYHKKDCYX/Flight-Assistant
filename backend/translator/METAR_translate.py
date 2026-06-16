@@ -208,8 +208,8 @@ def parse_metar(metar):
     # 天气现象 (可能多个)
     important_weather_map = [
         "DZ", "BR", "PO", "RA", "FG", "SQ", "SN",
-        "FU", "SG", "VA", "FC", "IC", "DU",
-        "PL", "SA", "SS", "GR", "HZ", "DS", "GS"
+        "FU", "SG", "VA", "FC", "IC", "DU", "PL",
+        "SA", "SS", "GR", "HZ", "DS", "GS"
     ]
     while i < len(parts):
         weat = parts[i]
@@ -366,21 +366,25 @@ def parse_metar(metar):
 def translate_weather_code(code):
     """将天气代码翻译成中文"""
     code_describer_map = { 
-        'MI': '浅', 'BC': '散片状', 'PR': '部分', 'DR': '低吹', 'BL': '高吹','SH': '阵', 'TS': '雷暴', 'FZ': '冻',
+        'MI': '浅', 'BC': '散片状', 'PR': '部分', 'DR': '低吹', 
+        'BL': '高吹','SH': '阵', 'TS': '雷暴', 'FZ': '冻',
         'RE': '近时'
     }
     code_map = {  
-        'DZ': '毛毛雨', 'BR': '轻雾', 'PO': '尘/沙旋风（尘卷风）', 'RA': '雨', 'FG': '雾', 'SQ': '飑', 'SN': '雪',
-        'FU': '烟', 'SG': '米雪', 'VA': '火山灰', 'FC': '龙卷云（陆龙卷/水龙卷）', 'IC': '冰晶/冰针', 'DU': '浮尘',
-        'PL': '冰粒', 'SA': '沙', 'SS': '沙暴', 'GR': '冰雹', 'HZ': '霾', 'DS': '尘暴', 'GS': '小冰雹或霰',
-        'FR':'霜', 'RI':'雾凇', 'PS':'积雪', 'VG':'雨淞', 'GA':'大风', 'WS':'风切变', 'TS': '雷暴', 'UP': '未知天气',
-        'FZUP': '冻未知天气'
+        'DZ': '毛毛雨', 'BR': '轻雾', 'PO': '尘/沙旋风（尘卷风）', 
+        'RA': '雨', 'FG': '雾', 'SQ': '飑', 'SN': '雪', 'FU': '烟',
+        'SG': '米雪', 'VA': '火山灰', 'FC': '龙卷云（陆龙卷/水龙卷）',
+        'IC': '冰晶/冰针', 'DU': '浮尘', 'PL': '冰粒', 'SA': '沙',
+        'SS': '沙暴', 'GR': '冰雹', 'HZ': '霾', 'DS': '尘暴', 'GS': '小冰雹或霰',
+        'FR':'霜', 'RI':'雾凇', 'PS':'积雪', 'VG':'雨淞', 'GA':'大风',
+        'WS':'风切变', 'TS': '雷暴', 'UP': '未知天气',
     }
     translated = ''
         
     if code == 'NSW':
         translated += '无显著天气'
         #NSW可能代表无天气
+        return translated
 
     # 处理 + 和 -
     # intensity = ''
