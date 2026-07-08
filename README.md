@@ -33,6 +33,7 @@
 - **前端**：Vue 3 + Vite
 - **API 文档**：Flasgger (Swagger UI)
 - **截图**：html2canvas (v1.4.1)
+- **生产服务器**：Windows 用 Waitress / Linux 用 Gunicorn（自动适配）
 - **数据来源**：
   - 机场数据：[mwgg/Airports](https://github.com/mwgg/Airports) (airports.json，约 29,000 个机场)
   - 国家代码翻译：[IP2Location 国家代码数据库](https://www.ip2location.com/free/country-multilingual) (country_translations.csv，249 个国家/地区)
@@ -69,23 +70,39 @@ npm install
 
 ### 启动
 
-```bash
-python run_dev.py
-```
+启动 Flask 后端（`localhost:5000`）+ Vue 开发服务器（`localhost:5173`），并打开浏览器。
 
-自动启动 Flask 后端（`localhost:5000`）+ Vue 开发服务器（`localhost:5173`），并打开浏览器。
-
-**手动启动：**
+**手动启动（开发）：**
 
 ```bash
 # 终端 1 — Flask 后端
 cd backend
-python app.py
+python run.py
 
 # 终端 2 — Vue
 cd frontend
-npx vite --host
+npm run dev
 ```
+
+**生产部署：**
+
+先构建前端静态文件：
+
+```bash
+cd frontend
+npm run build
+```
+
+然后启动 WSGI 服务器（自动适配系统）：
+
+```bash
+cd backend
+python wsgi.py
+```
+
+- Windows 下自动使用 **Waitress**
+- Linux/MacOS 下自动使用 **Gunicorn**
+- Linux/MacOS 下也可直接调用：`gunicorn wsgi:app -b 0.0.0.0:5000 -w 4`
 
 ## 示例
 
@@ -135,15 +152,16 @@ IATA代码：PEK
 ├── backend/                       # Flask 后端
 │   ├── translator/                # 翻译核心模块
 │   │   ├── __init__.py            # 统一导出
-│   │   ├── icao.py                # ICAO 翻译器
-│   │   └── metar.py               # METAR 报文解析
+│   │   ├── ICAO_code_search.py    # ICAO 翻译器
+│   │   └── METAR_translate.py     # METAR 报文解析
 │   ├── data/                      # 静态数据（需下载）
 │   │   ├── airports.json
 │   │   ├── country_translations.csv
 │   │   └── timezone_translations.json
 │   ├── utils.py                   # 外部 API 调用
 │   ├── app.py                     # Flask 路由定义
-│   ├── run.py                     # 启动入口
+│   ├── wsgi.py                    # 生产 WSGI 入口（Waitress / Gunicorn）
+│   ├── run.py                     # 开发启动入口
 │   ├── requirements.txt
 │   └── .env.example
 │
@@ -166,6 +184,7 @@ IATA代码：PEK
 │   ├── package.json
 │   └── vite.config.js             # API 代理配置
 │
+├── static/dist/                   # Vue 构建产物（生产用）
 ├── run_dev.py                     # 一键启动（Flask + Vue）
 ├── .gitignore
 └── README.md

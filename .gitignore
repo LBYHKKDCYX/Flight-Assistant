@@ -4,3 +4,4 @@ backend/data/
 !backend/data/timezone_translations.json
 frontend/node_modules/
 static/
+backend/venv/

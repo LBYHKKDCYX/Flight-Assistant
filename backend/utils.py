@@ -26,7 +26,6 @@ def fetch_metar(icao, raw=False):
         data = resp.json()
         if not data.get("code") == "GET_METAR":
             # 接口返回错误码
-            print(data)
             print(f"API 返回错误: {data.get('message')}")
             return None
         return data.get("data", []) if not raw else data
