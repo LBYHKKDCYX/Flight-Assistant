@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
-backend/data/
-!backend/data/timezone_translations.json
+backend/data/airports.json
+backend/data/country_translations.csv
 frontend/node_modules/
 static/
 backend/venv/
