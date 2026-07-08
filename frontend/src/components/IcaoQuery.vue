@@ -6,7 +6,7 @@
     <div class="card-body">
       <div class="input-group">
         <label>机场 ICAO 代码（4字母）</label>
-        <div class="input-wrap">
+        <div class="input-wrap input-suggest-wrap">
           <div class="btn-row">
             <button class="btn btn-sm" @click="copyInput"><AeroIcon name="clipboard" :size="14" /> 复制</button>
           </div>
@@ -16,10 +16,28 @@
             placeholder="例如: ZBAA, KJFK, EGLL"
             maxlength="4"
             autocomplete="off"
-            @keypress.enter.prevent="query"
+            @input="onInput"
+            @keydown="onKeydown"
+            @focus="onFocus"
+            @blur="onBlur"
           >
+          <ul class="suggest-dropdown" v-if="showSuggestions && suggestions.length">
+            <li
+              v-for="(s, idx) in suggestions"
+              :key="s.icao"
+              :class="{ active: idx === activeIdx }"
+              @mousedown.prevent="selectSuggestion(s)"
+            >
+              <span class="s-icao">{{ s.icao }}</span>
+              <span class="s-body">
+                <span class="s-name">{{ s.name }}</span>
+                <span class="s-iata" v-if="s.iata">{{ s.iata }}</span>
+              </span>
+              <span class="s-loc">{{ s.city }}{{ s.country ? ', ' + s.country : '' }}</span>
+            </li>
+          </ul>
         </div>
-        <div class="history-row" v-if="historyList.length">
+        <div class="history-row" v-if="historyList.length && !showSuggestions">
           <span class="history-hint">最近查询：</span>
           <button
             v-for="h in historyList"
@@ -59,6 +77,12 @@ const resultText = ref('等待输入…')
 const loading = ref(false)
 const error = ref(false)
 
+// 联想相关状态
+const suggestions = ref([])
+const showSuggestions = ref(false)
+const activeIdx = ref(-1)
+let debounceTimer = null
+
 const resultHtml = computed(() => {
   if (loading.value) return '<div class="spinner"></div> 加载中...'
   return resultText.value.replace(/\n/g, '<br>')
@@ -69,6 +93,85 @@ const resultClass = computed(() => ({
   'loading': loading.value,
   'error': error.value
 }))
+
+async function fetchSuggestions(query) {
+  if (!query || query.length < 1) {
+    suggestions.value = []
+    showSuggestions.value = false
+    return
+  }
+  try {
+    const res = await fetch(`/api_web/suggest?q=${encodeURIComponent(query)}`)
+    const data = await res.json()
+    suggestions.value = data.suggestions || []
+    activeIdx.value = -1
+    showSuggestions.value = suggestions.value.length > 0
+  } catch {
+    suggestions.value = []
+    showSuggestions.value = false
+  }
+}
+
+function onInput() {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    fetchSuggestions(icaoInput.value.trim())
+  }, 200)
+}
+
+function onFocus() {
+  if (icaoInput.value.trim() && suggestions.value.length) {
+    showSuggestions.value = true
+  }
+}
+
+function onBlur() {
+  // 延迟关闭，让 mousedown 先触发
+  setTimeout(() => {
+    showSuggestions.value = false
+  }, 150)
+}
+
+function onKeydown(e) {
+  if (!showSuggestions.value || !suggestions.value.length) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      query()
+    }
+    return
+  }
+
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      activeIdx.value = (activeIdx.value + 1) % suggestions.value.length
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      activeIdx.value = activeIdx.value <= 0
+        ? suggestions.value.length - 1
+        : activeIdx.value - 1
+      break
+    case 'Enter':
+      e.preventDefault()
+      if (activeIdx.value >= 0) {
+        selectSuggestion(suggestions.value[activeIdx.value])
+      } else {
+        showSuggestions.value = false
+        query()
+      }
+      break
+    case 'Escape':
+      showSuggestions.value = false
+      break
+  }
+}
+
+function selectSuggestion(s) {
+  icaoInput.value = s.icao
+  showSuggestions.value = false
+  query()
+}
 
 async function query() {
   const icao = icaoInput.value.trim().toUpperCase()

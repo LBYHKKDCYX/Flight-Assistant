@@ -55,17 +55,18 @@ body {
   border-radius: 32px;
   box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(255,255,255,0.5);
-}
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 25px 40px -12px rgba(0,0,0,0.2);
 }
 .card-header {
   background: #ffffff;
   padding: 1.5rem 1.8rem 0.8rem 1.8rem;
   border-bottom: 2px solid #eef2f6;
+  border-radius: 32px 32px 0 0;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 25px 40px -12px rgba(0,0,0,0.2);
 }
 .card-header h2 {
   font-size: 1.8rem;
@@ -241,6 +242,106 @@ textarea {
 }
 .fetch-row {
   margin-top: 10px;
+}
+
+/* ICAO 联想下拉 */
+.input-suggest-wrap {
+  position: relative;
+}
+.suggest-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #3b82f6;
+  border-top: none;
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 8px 20px rgba(37,99,235,0.1);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+}
+/* 下拉可见时：输入框底部变直角、去掉底边 */
+.input-suggest-wrap:has(.suggest-dropdown) input {
+  border-radius: 16px 16px 0 0;
+  border-color: #3b82f6;
+  border-bottom: none;
+}
+/* 自定义滚动条 */
+.suggest-dropdown::-webkit-scrollbar {
+  width: 5px;
+}
+.suggest-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 0 0 16px 0;
+}
+.suggest-dropdown::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.suggest-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.suggest-dropdown li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid #f1f5f9;
+}
+.suggest-dropdown li:last-child {
+  border-bottom: none;
+}
+.suggest-dropdown li:hover,
+.suggest-dropdown li.active {
+  background: linear-gradient(95deg, #eff6ff, #dbeafe);
+}
+.s-icao {
+  font-weight: 700;
+  color: #1e40af;
+  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  min-width: 50px;
+  flex-shrink: 0;
+}
+.s-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  min-width: 0;
+}
+.s-name {
+  font-size: 0.82rem;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-iata {
+  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.s-loc {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  flex-shrink: 0;
 }
 
 .footer {

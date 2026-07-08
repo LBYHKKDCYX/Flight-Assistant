@@ -22,7 +22,7 @@
       <div class="input-group fetch-row">
         <label>或通过 ICAO 获取实时报文</label>
         <div class="fetch-bar">
-          <div class="fetch-input-wrap">
+          <div class="fetch-input-wrap input-suggest-wrap">
             <div class="btn-row">
               <button class="btn btn-sm" @click="copyFetchIcao"><AeroIcon name="clipboard" :size="14" /> 复制</button>
             </div>
@@ -30,12 +30,32 @@
               v-model="fetchIcao"
               type="text"
               placeholder="ICAO 代码"
-              @keypress.enter.prevent="fetchMetar"
+              maxlength="4"
+              autocomplete="off"
+              @input="onFetchInput"
+              @keydown="onFetchKeydown"
+              @focus="onFetchFocus"
+              @blur="onFetchBlur"
             >
+            <ul class="suggest-dropdown" v-if="showFetchSuggest && fetchSuggestions.length">
+              <li
+                v-for="(s, idx) in fetchSuggestions"
+                :key="s.icao"
+                :class="{ active: idx === fetchActiveIdx }"
+                @mousedown.prevent="selectFetchSuggestion(s)"
+              >
+                <span class="s-icao">{{ s.icao }}</span>
+                <span class="s-body">
+                  <span class="s-name">{{ s.name }}</span>
+                  <span class="s-iata" v-if="s.iata">{{ s.iata }}</span>
+                </span>
+                <span class="s-loc">{{ s.city }}{{ s.country ? ', ' + s.country : '' }}</span>
+              </li>
+            </ul>
           </div>
           <button class="btn" @click="fetchMetar"><AeroIcon name="cloud-download" :size="20" /> 获取实时报文</button>
         </div>
-        <div class="history-row" v-if="historyList.length">
+        <div class="history-row" v-if="historyList.length && !showFetchSuggest">
           <span class="history-hint">最近查询：</span>
           <button
             v-for="h in historyList"
@@ -76,6 +96,12 @@ const metarResultText = ref('等待输入…')
 const metarLoading = ref(false)
 const metarError = ref(false)
 
+// 联想相关状态
+const fetchSuggestions = ref([])
+const showFetchSuggest = ref(false)
+const fetchActiveIdx = ref(-1)
+let fetchDebounce = null
+
 const metarResultHtml = computed(() => {
   if (metarLoading.value) return '<div class="spinner"></div> 加载中...'
   return metarResultText.value.replace(/\n/g, '<br>')
@@ -86,6 +112,79 @@ const resultClass = computed(() => ({
   'loading': metarLoading.value,
   'error': metarError.value
 }))
+
+// ---- 联想搜索 ----
+async function doFetchSuggest(query) {
+  if (!query || query.length < 1) {
+    fetchSuggestions.value = []
+    showFetchSuggest.value = false
+    return
+  }
+  try {
+    const res = await fetch(`/api_web/suggest?q=${encodeURIComponent(query)}`)
+    const data = await res.json()
+    fetchSuggestions.value = data.suggestions || []
+    fetchActiveIdx.value = -1
+    showFetchSuggest.value = fetchSuggestions.value.length > 0
+  } catch {
+    fetchSuggestions.value = []
+    showFetchSuggest.value = false
+  }
+}
+
+function onFetchInput() {
+  clearTimeout(fetchDebounce)
+  fetchDebounce = setTimeout(() => {
+    doFetchSuggest(fetchIcao.value.trim())
+  }, 200)
+}
+
+function onFetchFocus() {
+  if (fetchIcao.value.trim() && fetchSuggestions.value.length) {
+    showFetchSuggest.value = true
+  }
+}
+
+function onFetchBlur() {
+  setTimeout(() => { showFetchSuggest.value = false }, 150)
+}
+
+function onFetchKeydown(e) {
+  if (!showFetchSuggest.value || !fetchSuggestions.value.length) {
+    if (e.key === 'Enter') { e.preventDefault(); fetchMetar() }
+    return
+  }
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      fetchActiveIdx.value = (fetchActiveIdx.value + 1) % fetchSuggestions.value.length
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      fetchActiveIdx.value = fetchActiveIdx.value <= 0
+        ? fetchSuggestions.value.length - 1
+        : fetchActiveIdx.value - 1
+      break
+    case 'Enter':
+      e.preventDefault()
+      if (fetchActiveIdx.value >= 0) {
+        selectFetchSuggestion(fetchSuggestions.value[fetchActiveIdx.value])
+      } else {
+        showFetchSuggest.value = false
+        fetchMetar()
+      }
+      break
+    case 'Escape':
+      showFetchSuggest.value = false
+      break
+  }
+}
+
+function selectFetchSuggestion(s) {
+  fetchIcao.value = s.icao
+  showFetchSuggest.value = false
+  fetchMetar()
+}
 
 async function translate() {
   const m = metarInput.value.trim()

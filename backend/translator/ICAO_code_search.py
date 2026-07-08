@@ -330,6 +330,45 @@ class ICAOTranslator:
                 return f"未找到 ICAO 代码 {icao}，但前缀 {icao[:2]} 对应 {prefix_hint}"
             return f"未找到 ICAO 代码 {icao} 对应的机场"
 
+    def suggest(self, query, limit=8):
+        """
+        根据用户输入的部分字符串，联想匹配 ICAO 代码或机场名称
+        :param query: 用户输入的搜索字符串
+        :param limit: 返回结果数量上限
+        :return: list[dict]，每个 dict 包含 icao, iata, name, city, country
+        优先返回 ICAO 前缀匹配，不够再补名称包含匹配
+        """
+        query = query.strip().upper()
+        if not query:
+            return []
+
+        icao_matches = []
+        name_matches = []
+
+        for icao, info in self.airports.items():
+            name = info.get('name', '')
+            if icao.startswith(query):
+                icao_matches.append({
+                    'icao': icao,
+                    'iata': info.get('iata', ''),
+                    'name': name,
+                    'city': info.get('city', '') or '',
+                    'country': self.country_names.get(info.get('country', ''), info.get('country', ''))
+                })
+                if len(icao_matches) >= limit:
+                    return icao_matches[:limit]
+            elif query in name.upper():
+                name_matches.append({
+                    'icao': icao,
+                    'iata': info.get('iata', ''),
+                    'name': name,
+                    'city': info.get('city', '') or '',
+                    'country': self.country_names.get(info.get('country', ''), info.get('country', ''))
+                })
+
+        # ICAO 前缀匹配不够，用名称匹配补足
+        return icao_matches + name_matches[:limit - len(icao_matches)]
+
     def get_region_by_prefix(self, prefix):
         """
         根据 ICAO 代码前两位解释所属区域/国家（参考 ICAO 分配规则）

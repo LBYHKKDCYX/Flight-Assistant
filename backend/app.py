@@ -34,6 +34,15 @@ def metar_translate():
     return jsonify({'result': result})
 
 
+@app.route('/api_web/suggest', methods=['GET'])
+def suggest_icao():
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 1:
+        return jsonify({'suggestions': []})
+    suggestions = translator.suggest(query)
+    return jsonify({'suggestions': suggestions})
+
+
 @app.route('/api_web/fetch_metar', methods=['POST'])
 def fetch_metar_api():
     data = request.get_json()
