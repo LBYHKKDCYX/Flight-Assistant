@@ -1,12 +1,13 @@
 import os
 import sys
 
+try:
+    from app import app
+except ModuleNotFoundError as e:
+    print(f"缺少库: {e}")
+    raise SystemExit(1)
+
 if __name__ == '__main__':
-    try:
-        from app import app
-    except ModuleNotFoundError as e:
-        print(f"缺少库: {e}")
-        raise SystemExit(1)
     if os.name == 'nt':  # Windows
         try:
             from waitress import serve
