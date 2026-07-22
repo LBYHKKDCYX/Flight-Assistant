@@ -5,7 +5,7 @@ from .ICAO_code_search import ICAOTranslator
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 translator = ICAOTranslator(data_dir=os.path.join(_BASE, 'data'))
 
-def parse_metar(metar):
+def parse_metar(metar, prediction = False):
     """
     解析 METAR 报文，返回可读的天气报告。
     """
@@ -70,7 +70,7 @@ def parse_metar(metar):
 
     i = 0
     # 避免第一位是MATER
-    if i < len(parts) and re.match(r'^(METAR|SPECI)$', parts[i]):
+    if i < len(parts) and re.match(r'^(METAR|SPECI)$', parts[i]) and not prediction:
         if re.match(r'^METAR$', parts[i]):
             result['type'] = 'METAR（机场例行天气报告）'
         elif re.match(r'^SPECI$', parts[i]):
@@ -78,13 +78,13 @@ def parse_metar(metar):
         i += 1
 
     # 机场代码 (通常第一个)
-    if i < len(parts) and re.match(r'^[A-Z]{4}$', parts[i]):
+    if i < len(parts) and re.match(r'^[A-Z]{4}$', parts[i]) and not prediction:
         result['airport_code'] = parts[i]
         result['airport_description'] = translator.translate(parts[i])
         i += 1
 
     # 时间 (格式: DDHHMMZ)
-    if i < len(parts) and re.match(r'\d{6}Z$', parts[i]):
+    if i < len(parts) and re.match(r'\d{6}Z$', parts[i]) and not prediction:
         time_str = parts[i]
         day = int(time_str[0:2])
         hour = int(time_str[2:4])
@@ -92,8 +92,8 @@ def parse_metar(metar):
         result['time'] = translator.utc_to_local(result['airport_code'], day, hour, minute)
         # 转换为本地时间
         i += 1
-
-    if i < len(parts) and (parts[i] == 'AUTO' or parts[i] == 'NIL'):
+    # 自动报文或缺省报告
+    if i < len(parts) and (parts[i] == 'AUTO' or parts[i] == 'NIL') and not prediction:
         if parts[i] == 'NIL':
             result['nil'] = True
             result['nil_str'] = '此报文为缺省报告（缺报），报文结束'
@@ -330,7 +330,7 @@ def parse_metar(metar):
     # 预报
     prediction_tapy = ""
     prediction_str = {}
-    if i < len(parts):
+    if i < len(parts) and not prediction:
         prediction = parts[i]
         if  re.match(r'^(NOSIG|BECMG|TEMPO)$', prediction):
             if  re.match(r'^(NOSIG)$', prediction):
@@ -347,17 +347,18 @@ def parse_metar(metar):
                 prediction_minute = int(BECMG[4:6])
                 prediction_tim = f"{BECMG_code}\n{translator.utc_to_local(result['airport_code'], day, prediction_hour, prediction_minute)}"
                 prediction_tapy += f"未来两小时内，{prediction_tim}，天气将逐渐变为:\n"
-                prediction_str = parse_metar(' '.join(parts[i + 2:]))
+                prediction_str = parse_metar(' '.join(parts[i + 2:]), prediction = True)
             elif  re.match(r'^(TEMPO)$', prediction):
                 prediction_tapy += "未来两小时将有临时天气\n"
-                prediction_str = parse_metar(' '.join(parts[i + 1:]))
+                prediction_str = parse_metar(' '.join(parts[i + 1:]), prediction = True)
             i = len(parts)
     result['prediction_tapy'] = prediction_tapy
     result['prediction'] = prediction_str
 
-    # 剩余部分作为备注
+    #备注
     if i < len(parts) and parts[i] == "RMK":
         result['remarks'] = ' '.join(parts[i + 1:])
+    # 错误信息
     else:
         result['error'] = ' '.join(parts[i:])
 
@@ -368,7 +369,6 @@ def translate_weather_code(code):
     code_describer_map = { 
         'MI': '浅', 'BC': '散片状', 'PR': '部分', 'DR': '低吹', 
         'BL': '高吹','SH': '阵', 'TS': '雷暴', 'FZ': '冻',
-        'RE': '近时'
     }
     code_map = {  
         'DZ': '毛毛雨', 'BR': '轻雾', 'PO': '尘/沙旋风（尘卷风）', 
@@ -386,16 +386,17 @@ def translate_weather_code(code):
         #NSW可能代表无天气
         return translated
 
-    # 处理 + 和 -
-    # intensity = ''
+    # 处理 +  - RE VC
     if code.startswith('+'):
         translated += '强'
-        # intensity = '强'
         code = code[1:]
     elif code.startswith('-'):
         translated += '弱'
         # intensity = '弱'
         code = code[1:]
+    elif code.startswith('RE'):
+        translated += '近时'
+        code = code[2:]
     elif code.startswith('VC'):
         translated += '附近有'
         code = code[2:]
@@ -410,13 +411,16 @@ def translate_weather_code(code):
         if len(code) >= 4:
             describer = code[:2]
             code1 = code[2:]
+            # 处理描述符
             if describer in code_describer_map:
                 translated += code_describer_map[describer]
             else:
                     translated += describer
+            # 处理现象
             if code1 in code_map:
                 translated += code_map[code1]
             else:
+                # 尝试拆分多字母现象
                 code2 = code1[:2]
                 code3 = code1[2:]
                 if code2 in code_map and code3 in code_map:
@@ -429,58 +433,78 @@ def translate_weather_code(code):
 
 def translate_codes(parsed):
     result = ""
+    # 报文类型
     if parsed['type']:
         result += f"报文类型：{parsed['type']}\n"
+    # 机场描述
     if parsed['airport_description']:
         result += parsed['airport_description'] + "\n"
+    # 观测时间
     if parsed['time']:
         result += f"\n观测时间：{parsed['time']}\n"
+    # 自动报
     if parsed['auto']:
         result += parsed['auto_str'] + "\n"
+    # 缺报
     if parsed['nil']:
         result += parsed['nil_str'] + "\n"
+    # 风
     if parsed['wind_direction']:
         result += f"风：\n    风向：{parsed['wind_direction']}\n    风速：{parsed['wind_speed']}\n"
         if parsed['wind_gust']:
             result += f"    阵风 {parsed['wind_gust']}\n"
         if parsed['wind_change']:
             result += f"    风向变化：{parsed['wind_change']}\n"
+    # 能见度
     if parsed['visibility']:
         result += f"能见度：{parsed['visibility']}\n"
+    # 跑道视程
     if parsed['rvr']:
         result += f"跑道视程：\n    "
         result += '\n    '.join(parsed['rvr'])
         result += '\n'
+    # 天气现象
     if parsed['weather']:
         result += f"天气现象：\n    "
         result += '\n    '.join(parsed['weather'])
         result += '\n'
+    # 云层
     if parsed['clouds']:   # NSC, NCD, SKC, CLR
         result += f"云层：\n    "
         result += '\n    '.join(parsed['clouds'])
         result += '\n'
+    # 垂直能见度
     if parsed['vertical_visibility']:
         result += f"垂直能见度：{parsed['vertical_visibility']}\n"
+    # 温度
     if parsed['temperature']:
         result += f"温度：{parsed['temperature']}\n"
+    # 露点
     if parsed['dew_point']:
         result += f"露点：{parsed['dew_point']}\n"
+    # 气压
     if parsed['pressure']:
         result += f"气压：{parsed['pressure']}\n"
+    # 近时天气
     if parsed['near_weather']:
         result += f"近时天气：\n    "
         result += '\n    '.join(parsed['near_weather'])
         result += '\n'
+    # 风切变
     if parsed['wind_shear']:
         result += f"风切变：{parsed['wind_shear']}\n"
+    # 预测
     if parsed['prediction_tapy']:
         result += "\n" + parsed['prediction_tapy']
     if parsed['prediction']:
         result += translate_codes(parsed['prediction'])
+    # 备注
     if parsed['remarks']:
         result += f"\n备注：{parsed['remarks']}\n"
+    # 无法翻译部分
     if parsed['error']:
         result += f"\n无法翻译部分：{parsed['error']}\n"
+    # 报文内容冲突警告
     if parsed['conflict']:
         result += f"\n⚠️警告：报文内容冲突（{'; '.join(parsed['conflicting_content'])}）\n"
     return result
@@ -505,7 +529,7 @@ def main():
         return
     while not metar:
         metar = input("\n请输入 正确的METAR 报文：").strip()
-    parsed = parse_metar(metar)
+    parsed = parse_metar(metar, prediction = False)
     print("\n翻译结果：")
     print(translate_codes(parsed))
 

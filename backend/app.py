@@ -29,7 +29,7 @@ def metar_translate():
     metar = data.get('metar', '').strip()
     if not metar:
         return jsonify({'error': '请输入 METAR 报文'}), 400
-    parsed = parse_metar(metar)
+    parsed = parse_metar(metar, prediction = False)
     result = translate_codes(parsed)
     return jsonify({'result': result})
 
@@ -128,7 +128,7 @@ def api_metar_translate():
     if not metar:
         return jsonify({'code': 400, 'message': 'METAR cannot be empty'}), 400
 
-    parsed = parse_metar(metar)
+    parsed = parse_metar(metar, prediction = False)
     if fmt == 'string':
         result = translate_codes(parsed)
         return jsonify({'code': 200, 'message': 'success', 'data': result})
@@ -164,7 +164,7 @@ def api_metar_fetch(icao):
     if raw_flag:
         result['raw_metar'] = metar_str
     if translated_flag:
-        parsed = parse_metar(metar_str)
+        parsed = parse_metar(metar_str, prediction = False)
         if fmt == 'string':
             result['translated'] = translate_codes(parsed)
         else:
