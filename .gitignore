@@ -6,3 +6,5 @@ backend/data/.etags.json
 frontend/node_modules/
 frontend/dist/
 backend/venv/
+.env
+.env.*
